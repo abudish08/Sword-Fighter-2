@@ -260,6 +260,7 @@
             <button onclick="game.toggleInventoryModal()" class="hd-btn px-2.5 py-1 text-xs" title="Shortcut: I">🎒 <span id="ui-btn-inv">INV [I]</span></button>
             <button onclick="game.toggleQuestModal()" class="hd-btn px-2.5 py-1 text-xs" title="Shortcut: J">📖 <span id="ui-btn-quests">QUESTS [J]</span></button>
             <button onclick="game.toggleWorldMapModal()" class="hd-btn px-2.5 py-1 text-xs" title="Shortcut: M">🚩 <span id="ui-btn-map">MAP [M]</span></button>
+            <button onclick="game.manualSave()" class="hd-btn px-2.5 py-1 text-xs" title="Manually save your progress to this browser">💾 SAVE</button>
             <button onclick="game.openSettingsModal()" class="hd-btn-secondary px-2.5 py-1 text-xs">⚙️</button>
             <button onclick="game.returnToTitleScreen()" class="hd-btn-secondary px-2.5 py-1 text-xs text-amber-300">🏠</button>
         </div>
@@ -1072,6 +1073,11 @@
                     };
                     localStorage.setItem(this.storageKey, JSON.stringify(this.saves));
                 } catch (e) {}
+            }
+
+            manualSave() {
+                this.saveCurrentWorld();
+                this.showToast("💾 Game saved to this browser! Use Continue on the title screen to load it.");
             }
 
             openPlayMenu(multiplayer = false) {
