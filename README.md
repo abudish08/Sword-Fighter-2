@@ -67,4 +67,7 @@ Once the repo is public and GitHub Pages is enabled, open:
 - Use the map (M) after conquering flags to fast travel.
 - Progress is saved automatically to your browser.
 
+## Assets
+New art goes in `assets/sunnyside/` (`characters/`, `tiles/`, `ui/`, `crops/`). See `assets/README.md`.
+
 Enjoy the adventure!
