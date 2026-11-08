@@ -2,7 +2,7 @@
  * Player / hero state, combat actions, fishing cast, and hero rendering.
  */
 
-import { sfx } from './assets.js';
+import { sfx, assets } from './assets.js';
 import { TILE, T_WATER, T_BRIDGE_TRAP, T_CHASM, T_LAVA } from './world.js';
 
 export const playerMethods = {
@@ -414,6 +414,7 @@ export const playerMethods = {
       }
       if (actor.shielding) moveSpeed *= 0.55;
 
+      actor.moving = false;
       if (dx !== 0 || dy !== 0) {
           if (actor.fishingState) actor.fishingState = null;
           if (Math.abs(dx) >= Math.abs(dy)) actor.dir = dx > 0 ? 'right' : 'left';
@@ -423,6 +424,7 @@ export const playerMethods = {
           dy = (dy / len) * moveSpeed * dt;
           if (this.canWalk(actor.x + dx, actor.y, actor)) actor.x += dx;
           if (this.canWalk(actor.x, actor.y + dy, actor)) actor.y += dy;
+          actor.moving = true;
       }
 
       if (actor.attackTimer > 0) actor.attackTimer = Math.max(0, actor.attackTimer - dt);
@@ -512,6 +514,17 @@ export const playerMethods = {
       // Blocky shadow
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.fillRect(-11, 13, 22, 5);
+
+      // Prefer Sunnyside Human layers when loaded (diver stays procedural).
+      if (assets.drawHeroSprite(ctx, p, !!p.moving)) {
+          if (p.stealthHidden) {
+              ctx.fillStyle = '#4ade80';
+              ctx.font = 'bold 13px VT323';
+              ctx.fillText(`HIDDEN ${p.stealthTimer.toFixed(1)}s`, -22, -28);
+          }
+          ctx.restore();
+          return;
+      }
 
       if (p.outfit === 'diver') {
           // === BLACK & WHITE DIVING GEAR ===

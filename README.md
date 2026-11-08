@@ -65,7 +65,17 @@ Or any other static server (VS Code Live Server, `npx serve`, etc.).
 - 4 save slots (stored in browser localStorage)
 - Split-screen multiplayer
 - Retro chiptune music and sound effects
-- Fully blocky 1980s pixel art style (no curves)
+- Sunnyside World sprites where mapped (hero, goblin/skeleton enemies, key tiles, a few UI icons), with procedural `fillRect` fallback
+
+## Art assets (Sunnyside)
+
+Pack files live in `public/assets/sunnyside/`. On boot, `js/assets.js` loads a **curated first slice** (see `CURATED_ASSETS`) with a progress bar. Missing images do not block play — draws fall back to the original blocky Canvas path.
+
+**Currently sprite-backed:** Human hero (idle/walk/attack layers), Goblin→blob & Skeleton→snake, grass/path/water/wall/wood tiles + tree deco, title/HUD sword icon.
+
+**Still procedural:** bosses, animals, NPCs, diving outfit, dungeon/lava/bridge tiles, most HUD emoji, weapons/FX overlays.
+
+**Adding more:** append a `{ key, url, frames? }` row to `CURATED_ASSETS` in `js/assets.js`, map it in `TILE_ATLAS` / `ENEMY_SPRITES` (or call `assets.drawStrip` / `assets.drawTile` from the draw path), and keep the `fillRect` branch as fallback. Details are in the header comment of `js/assets.js`.
 
 ## Tips
 - Explore West for the ocean and submarine, East for the volcano.

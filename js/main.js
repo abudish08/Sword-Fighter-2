@@ -3,7 +3,7 @@
  * Phase 1: ES modules + procedural Canvas fallback (no sprite downloads yet).
  */
 
-import { sfx, assets } from './assets.js';
+import { sfx, assets, CURATED_ASSETS } from './assets.js';
 import { TILE, MAP_W, MAP_H, WORLD_LIMIT, worldMethods } from './world.js';
 import { playerMethods } from './player.js';
 import { entityMethods } from './entities.js';
@@ -402,6 +402,8 @@ class Game {
 
             if (targetHero) {
                 const ang = Math.atan2(targetHero.y - e.y, targetHero.x - e.x);
+                e.dirAngle = ang;
+                e._spriteMoving = true;
                 const mx = Math.cos(ang) * e.speed * dt;
                 const my = Math.sin(ang) * e.speed * dt;
                 if (this.canWalk(e.x + mx, e.y)) e.x += mx;
@@ -411,6 +413,7 @@ class Game {
                     this.damagePlayer(0.5, e.type === 'blob' ? "Pink Blob" : "Green Snake", targetHero);
                 }
             } else {
+                e._spriteMoving = true;
                 e.wanderTimer -= dt;
                 if (e.wanderTimer <= 0) {
                     e.wanderTimer = 1.5 + Math.random() * 1.5;
@@ -502,11 +505,29 @@ Object.assign(Game.prototype, worldMethods, playerMethods, entityMethods, uiMeth
 
 let game;
 
+function setBootProgress(frac, label) {
+    const bar = document.getElementById('boot-progress-bar');
+    const text = document.getElementById('boot-progress-text');
+    const overlay = document.getElementById('boot-overlay');
+    if (bar) bar.style.width = `${Math.floor(frac * 100)}%`;
+    if (text) text.textContent = label || `Loading art… ${Math.floor(frac * 100)}%`;
+    if (overlay && frac >= 1) {
+        overlay.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => overlay.classList.add('hidden'), 400);
+    }
+}
+
 async function boot() {
-    // Ready for future asset packs; empty list keeps procedural rendering.
-    await assets.loadAll([]);
+    setBootProgress(0, 'Loading Sunnyside art…');
+    const result = await assets.loadAll(CURATED_ASSETS, (frac, done, total, key) => {
+        setBootProgress(frac, `Loading ${key || 'assets'} (${done}/${total})`);
+    });
+    setBootProgress(1, result.failed
+        ? `Ready — ${result.ok} sprites loaded (${result.failed} missing, procedural fallback)`
+        : `Ready — ${result.ok} sprites loaded`);
     game = new Game();
     window.game = game; // inline HTML onclick handlers (title menu, etc.)
+    if (typeof game.refreshSpriteUI === 'function') game.refreshSpriteUI();
 }
 
 if (document.readyState === 'loading') {

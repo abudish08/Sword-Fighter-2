@@ -2,7 +2,7 @@
  * World constants, procedural generation, tile queries, and world rendering.
  */
 
-import { sfx } from './assets.js';
+import { sfx, assets } from './assets.js';
 
 /**
  * WORLD & TILE CONSTANTS (500,000 x 500,000 BOUNDED BLOCK WORLD — ZERO CURVES)
@@ -921,54 +921,65 @@ export const worldMethods = {
               const h = this.coordHash(x, y, 1);
 
               if (t === T_GRASS) {
-                  ctx.fillStyle = ((x + y) % 2 === 0) ? '#2d6a4f' : '#265c43';
-                  ctx.fillRect(px, py, TILE, TILE);
-                  // Cubic pixel grass blades & pixel clover blocks
-                  ctx.fillStyle = '#40916c';
-                  const bx = px + Math.floor(6 + h * 24);
-                  const by = py + Math.floor(10 + ((h * 53) % 22));
-                  ctx.fillRect(bx, by, 3, 7);
-                  ctx.fillRect(bx + 4, by + 2, 3, 5);
-                  if (h > 0.65) {
-                      ctx.fillStyle = '#52b788';
-                      ctx.fillRect(px + 28, py + 12, 4, 4);
-                      ctx.fillRect(px + 33, py + 16, 4, 4);
+                  if (!assets.drawTile(ctx, 'grassA', px, py, TILE, x + y)) {
+                      ctx.fillStyle = ((x + y) % 2 === 0) ? '#2d6a4f' : '#265c43';
+                      ctx.fillRect(px, py, TILE, TILE);
+                      // Cubic pixel grass blades & pixel clover blocks
+                      ctx.fillStyle = '#40916c';
+                      const bx = px + Math.floor(6 + h * 24);
+                      const by = py + Math.floor(10 + ((h * 53) % 22));
+                      ctx.fillRect(bx, by, 3, 7);
+                      ctx.fillRect(bx + 4, by + 2, 3, 5);
+                      if (h > 0.65) {
+                          ctx.fillStyle = '#52b788';
+                          ctx.fillRect(px + 28, py + 12, 4, 4);
+                          ctx.fillRect(px + 33, py + 16, 4, 4);
+                      }
                   }
               } else if (t === T_PATH) {
-                  ctx.fillStyle = ((x + y) % 2 === 0) ? '#b08968' : '#a37b59';
-                  ctx.fillRect(px, py, TILE, TILE);
-                  ctx.fillStyle = '#7f5539';
-                  ctx.fillRect(px + Math.floor(8 + h * 14), py + 10, 8, 5);
-                  ctx.fillRect(px + Math.floor(22 - h * 10), py + 28, 9, 5);
-                  ctx.fillStyle = '#ddb892';
-                  ctx.fillRect(px + 18, py + 20, 4, 4);
+                  if (!assets.drawTile(ctx, 'path', px, py, TILE)) {
+                      ctx.fillStyle = ((x + y) % 2 === 0) ? '#b08968' : '#a37b59';
+                      ctx.fillRect(px, py, TILE, TILE);
+                      ctx.fillStyle = '#7f5539';
+                      ctx.fillRect(px + Math.floor(8 + h * 14), py + 10, 8, 5);
+                      ctx.fillRect(px + Math.floor(22 - h * 10), py + 28, 9, 5);
+                      ctx.fillStyle = '#ddb892';
+                      ctx.fillRect(px + 18, py + 20, 4, 4);
+                  }
               } else if (t === T_TREE) {
-                  ctx.fillStyle = '#1b4332';
-                  ctx.fillRect(px, py, TILE, TILE);
-                  // Blocky 8-bit Tree shadow, bark trunk & stepped square foliage canopy
-                  ctx.fillStyle = '#091c15';
-                  ctx.fillRect(px + 8, py + 34, 28, 6);
-                  ctx.fillStyle = '#5c3a21';
-                  ctx.fillRect(px + 16, py + 22, 12, 16);
-                  ctx.fillStyle = '#3b2313';
-                  ctx.fillRect(px + 20, py + 24, 3, 12);
-                  ctx.fillStyle = '#14532d';
-                  ctx.fillRect(px + 6, py + 6, 32, 20);
-                  ctx.fillStyle = '#16a34a';
-                  ctx.fillRect(px + 10, py + 4, 24, 16);
-                  ctx.fillStyle = '#4ade80';
-                  ctx.fillRect(px + 14, py + 6, 12, 8);
+                  // Grass underlay + Sunnyside tree deco when available.
+                  if (!assets.drawTile(ctx, 'grassA', px, py, TILE, x + y)) {
+                      ctx.fillStyle = '#1b4332';
+                      ctx.fillRect(px, py, TILE, TILE);
+                  }
+                  const treeFrame = Math.floor(h * 4) % 4;
+                  if (!assets.drawStrip(ctx, 'tree_deco', treeFrame, px - 4, py - 10, TILE + 8, TILE + 8)) {
+                      ctx.fillStyle = '#091c15';
+                      ctx.fillRect(px + 8, py + 34, 28, 6);
+                      ctx.fillStyle = '#5c3a21';
+                      ctx.fillRect(px + 16, py + 22, 12, 16);
+                      ctx.fillStyle = '#3b2313';
+                      ctx.fillRect(px + 20, py + 24, 3, 12);
+                      ctx.fillStyle = '#14532d';
+                      ctx.fillRect(px + 6, py + 6, 32, 20);
+                      ctx.fillStyle = '#16a34a';
+                      ctx.fillRect(px + 10, py + 4, 24, 16);
+                      ctx.fillStyle = '#4ade80';
+                      ctx.fillRect(px + 14, py + 6, 12, 8);
+                  }
               } else if (t === T_WALL) {
-                  ctx.fillStyle = '#334155';
-                  ctx.fillRect(px, py, TILE, TILE);
-                  ctx.fillStyle = '#475569';
-                  ctx.fillRect(px + 3, py + 3, 18, 16);
-                  ctx.fillRect(px + 23, py + 3, 18, 16);
-                  ctx.fillRect(px + 3, py + 22, 12, 18);
-                  ctx.fillRect(px + 17, py + 22, 24, 18);
-                  if (h > 0.55) {
-                      ctx.fillStyle = '#15803d';
-                      ctx.fillRect(px + 4, py + 34, 6, 6);
+                  if (!assets.drawTile(ctx, 'wall', px, py, TILE)) {
+                      ctx.fillStyle = '#334155';
+                      ctx.fillRect(px, py, TILE, TILE);
+                      ctx.fillStyle = '#475569';
+                      ctx.fillRect(px + 3, py + 3, 18, 16);
+                      ctx.fillRect(px + 23, py + 3, 18, 16);
+                      ctx.fillRect(px + 3, py + 22, 12, 18);
+                      ctx.fillRect(px + 17, py + 22, 24, 18);
+                      if (h > 0.55) {
+                          ctx.fillStyle = '#15803d';
+                          ctx.fillRect(px + 4, py + 34, 6, 6);
+                      }
                   }
               } else if (t === T_DUNGEON_FLOOR || t === T_TEMPLE2_FLOOR || t === T_FIRE_FLOOR || t === T_WATER_TEMPLE_FLOOR || t === T_SUB_FLOOR) {
                   if (t === T_TEMPLE2_FLOOR || t === T_WATER_TEMPLE_FLOOR) {
@@ -1008,18 +1019,22 @@ export const worldMethods = {
                   ctx.fillRect(px + 4, py + 14, TILE - 8, 2);
                   ctx.fillRect(px + 4, py + 28, TILE - 8, 2);
               } else if (t === T_WOOD_FLOOR) {
-                  ctx.fillStyle = '#7c2d12';
-                  ctx.fillRect(px, py, TILE, TILE);
-                  ctx.fillStyle = '#431407';
-                  ctx.fillRect(px, py + 14, TILE, 2);
-                  ctx.fillRect(px, py + 29, TILE, 2);
+                  if (!assets.drawTile(ctx, 'wood', px, py, TILE)) {
+                      ctx.fillStyle = '#7c2d12';
+                      ctx.fillRect(px, py, TILE, TILE);
+                      ctx.fillStyle = '#431407';
+                      ctx.fillRect(px, py + 14, TILE, 2);
+                      ctx.fillRect(px, py + 29, TILE, 2);
+                  }
               } else if (t === T_WATER) {
-                  ctx.fillStyle = '#0284c7';
-                  ctx.fillRect(px, py, TILE, TILE);
-                  const waveShift = Math.floor(performance.now() / 300 + x + y) % 2 === 0 ? 0 : 4;
-                  ctx.fillStyle = '#38bdf8';
-                  ctx.fillRect(px + 6 + waveShift, py + 12, 14, 3);
-                  ctx.fillRect(px + 18 - waveShift, py + 28, 14, 3);
+                  if (!assets.drawTile(ctx, 'water', px, py, TILE)) {
+                      ctx.fillStyle = '#0284c7';
+                      ctx.fillRect(px, py, TILE, TILE);
+                      const waveShift = Math.floor(performance.now() / 300 + x + y) % 2 === 0 ? 0 : 4;
+                      ctx.fillStyle = '#38bdf8';
+                      ctx.fillRect(px + 6 + waveShift, py + 12, 14, 3);
+                      ctx.fillRect(px + 18 - waveShift, py + 28, 14, 3);
+                  }
               }
           }
       }
