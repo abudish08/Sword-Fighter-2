@@ -2,7 +2,7 @@
  * Enemies, animals, NPCs, bosses, and related spawn / update / draw helpers.
  */
 
-import { sfx } from './assets.js';
+import { sfx, assets } from './assets.js';
 import { TILE } from './world.js';
 
 export const entityMethods = {
@@ -536,6 +536,18 @@ export const entityMethods = {
 
       ctx.fillStyle = 'rgba(0,0,0,0.28)';
       ctx.fillRect(-12, 13, 24, 5);
+
+      // Goblin → blob, Skeleton → snake when sheets are loaded.
+      if (assets.drawEnemySprite(ctx, e)) {
+          if (e.hp < e.maxHp) {
+              ctx.fillStyle = '#0f172a';
+              ctx.fillRect(-14, -20, 28, 4);
+              ctx.fillStyle = '#ef4444';
+              ctx.fillRect(-14, -20, Math.floor(28 * (e.hp / e.maxHp)), 4);
+          }
+          ctx.restore();
+          return;
+      }
 
       if (e.type === 'blob') {
           // Little Pink Blocky Legs & Arms

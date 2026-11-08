@@ -2,7 +2,7 @@
  * Menus, save slots, HUD, modals, art shop, fish market, quests, i18n.
  */
 
-import { sfx } from './assets.js';
+import { sfx, assets } from './assets.js';
 import { TILE } from './world.js';
 
 export const I18N = {
@@ -1159,6 +1159,33 @@ export const uiMethods = {
 
   addFloatingText(x, y, text, color = "#ffffff") {
       this.floatingTexts.push({ x, y, text, color, life: 1.1 });
+  },
+
+  /**
+   * Swap a few HUD/title emoji for Sunnyside UI icons when those PNGs loaded.
+   * Safe no-op if assets failed — emoji stay visible.
+   */
+  refreshSpriteUI() {
+      const swordImg = assets.getImage('ui_sword');
+      const titleImg = document.getElementById('title-sword-icon');
+      const titleEmoji = document.getElementById('title-sword-emoji');
+      if (swordImg && titleImg && titleEmoji) {
+          titleImg.src = swordImg.src;
+          titleImg.classList.remove('hidden');
+          titleEmoji.classList.add('hidden');
+      }
+      const hudIcon = document.getElementById('sword-icon');
+      if (swordImg && hudIcon) {
+          hudIcon.textContent = '';
+          const img = document.createElement('img');
+          img.src = swordImg.src;
+          img.alt = 'Sword';
+          img.width = 18;
+          img.height = 18;
+          img.style.imageRendering = 'pixelated';
+          img.className = 'inline-block align-middle';
+          hudIcon.appendChild(img);
+      }
   },
 
   showToast(msg) {

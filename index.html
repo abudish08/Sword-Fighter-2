@@ -10,12 +10,22 @@
 </head>
 <body class="w-screen h-screen flex flex-col bg-slate-950">
 
+<!-- Boot / asset load overlay (progress-friendly; game still boots if images fail) -->
+    <div id="boot-overlay" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-slate-950 transition-opacity duration-300">
+        <div class="title-font text-amber-400 text-sm mb-4 tracking-wider">SWORD FIGHTER 2</div>
+        <div class="w-64 h-3 bg-slate-800 border-2 border-amber-500/60 overflow-hidden mb-2">
+            <div id="boot-progress-bar" class="h-full bg-amber-400" style="width:0%"></div>
+        </div>
+        <div id="boot-progress-text" class="text-slate-300 text-sm font-semibold">Loading art…</div>
+    </div>
+
 <!-- ==================== TITLE SCREEN & MENUS ("SWORD FIGHTER 2") ==================== -->
     <div id="title-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 p-4">
         <!-- Main Title Card -->
         <div id="title-main-view" class="hd-panel max-w-lg w-full p-8 flex flex-col items-center text-center relative z-10">
             <div class="w-20 h-20 bg-amber-500/20 border-4 border-amber-400 flex items-center justify-center mb-4">
-                <span class="text-4xl">⚔️</span>
+                <img id="title-sword-icon" alt="" class="hidden w-12 h-12 image-pixelated" style="image-rendering: pixelated;" />
+                <span id="title-sword-emoji" class="text-4xl">⚔️</span>
             </div>
             <h1 class="title-font text-2xl sm:text-3xl font-extrabold text-amber-400 tracking-wider mb-2">
                 SWORD FIGHTER 2
