@@ -454,6 +454,12 @@ export const entityMethods = {
       ctx.fillStyle = 'rgba(0,0,0,0.28)';
       ctx.fillRect(-14, 13, 28, 5);
 
+      // Sunnyside animal strips when available (rabbit stays procedural — no pack sheet).
+      if (assets.drawAnimalSprite(ctx, a)) {
+          ctx.restore();
+          return;
+      }
+
       if (a.kind === 'cow') {
           // Two little legs + hooves
           ctx.fillStyle = '#78350f';
@@ -594,18 +600,20 @@ export const entityMethods = {
   drawSmoothNPC(ctx, npc) {
       ctx.save();
       ctx.translate(Math.floor(npc.x), Math.floor(npc.y));
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(-6, 7, 5, 8);
-      ctx.fillRect(1, 7, 5, 8);
-      ctx.fillStyle = npc.coatColor;
-      ctx.fillRect(-10, -6, 20, 14);
-      ctx.fillStyle = '#fde68a';
-      ctx.fillRect(-7, -19, 14, 13);
-      ctx.fillStyle = npc.hairColor;
-      ctx.fillRect(-8, -22, 16, 5);
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(-4, -14, 2, 3);
-      ctx.fillRect(2, -14, 2, 3);
+      if (!assets.drawNpcSprite(ctx, npc)) {
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(-6, 7, 5, 8);
+          ctx.fillRect(1, 7, 5, 8);
+          ctx.fillStyle = npc.coatColor;
+          ctx.fillRect(-10, -6, 20, 14);
+          ctx.fillStyle = '#fde68a';
+          ctx.fillRect(-7, -19, 14, 13);
+          ctx.fillStyle = npc.hairColor;
+          ctx.fillRect(-8, -22, 16, 5);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(-4, -14, 2, 3);
+          ctx.fillRect(2, -14, 2, 3);
+      }
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(-38, -36, 76, 14);
       ctx.fillStyle = '#fbbf24';
@@ -643,6 +651,11 @@ export const entityMethods = {
           ctx.restore();
       }
 
+      if (!(b.invuln > 0 && Math.floor(performance.now() / 50) % 2 === 0) && assets.drawBossSprite(ctx, 'temple', b)) {
+          ctx.restore();
+          return;
+      }
+
       ctx.fillStyle = b.invuln > 0 ? '#ffffff' : '#581c87';
       ctx.fillRect(-34, -34, 68, 62);
       ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 3;
@@ -657,6 +670,14 @@ export const entityMethods = {
       const b = this.temple2Boss;
       ctx.save();
       ctx.translate(Math.floor(b.x), Math.floor(b.y));
+      if (!(b.invuln > 0 && Math.floor(performance.now() / 50) % 2 === 0) && assets.drawBossSprite(ctx, 'temple2', b)) {
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(-20, -48, 40, 5);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(-20, -48, Math.floor(40 * (b.hp / b.maxHp)), 5);
+          ctx.restore();
+          return;
+      }
       ctx.fillStyle = b.invuln > 0 ? '#ffffff' : '#0284c7';
       ctx.fillRect(-28, -28, 56, 56);
       ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4;
@@ -700,6 +721,11 @@ export const entityMethods = {
           ctx.fillStyle = '#fef08a';
           ctx.fillRect(32, -5, 64, 10);
           ctx.restore();
+      }
+
+      if (!(fb.invuln > 0 && Math.floor(performance.now() / 50) % 2 === 0) && assets.drawBossSprite(ctx, 'fire', fb)) {
+          ctx.restore();
+          return;
       }
 
       // Huge Blocky Fireball Boss Body
@@ -753,6 +779,11 @@ export const entityMethods = {
           ctx.strokeStyle = '#e0f2fe';
           ctx.lineWidth = 10;
           ctx.stroke();
+      }
+
+      if (!(wb.invuln > 0 && Math.floor(performance.now() / 50) % 2 === 0) && assets.drawBossSprite(ctx, 'water', wb)) {
+          ctx.restore();
+          return;
       }
 
       // Stationary Abyssal Water Boss Body

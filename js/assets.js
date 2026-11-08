@@ -2,7 +2,7 @@
  * Asset helpers + audio.
  *
  * Sunnyside World PNGs live under public/assets/sunnyside/.
- * AssetLoader loads a curated first-slice map; missing files fall back to
+ * AssetLoader loads a curated map; missing files fall back to
  * procedural Canvas fillRect drawing in player / entities / world / UI.
  *
  * How to add more mappings
@@ -11,7 +11,7 @@
  *    - `frames` = horizontal strip frame count (from the filename stripN).
  *    - For the 16px tileset sheet, use key `tileset_16` (already loaded).
  * 2. Add a TILE_SPRITE or ENTITY/HERO key alias in the maps near the bottom
- *    (TILE_ATLAS, HERO_LAYERS, ENEMY_SPRITES, UI_ICONS).
+ *    (TILE_ATLAS, HERO_LAYERS, ENEMY_SPRITES, ANIMAL_SPRITES, UI_ICONS).
  * 3. In the draw path, call assets.drawStrip / assets.drawTile / assets.drawImage
  *    first; if it returns false, keep the existing fillRect fallback.
  * 4. Re-test with: python3 -m http.server 8000  →  http://localhost:8000
@@ -103,7 +103,7 @@ export const sfx = new SoundSystem();
 export const ASSET_ROOT = 'public/assets/sunnyside';
 
 /**
- * First-slice curated key → file map.
+ * Curated key → file map (expanded coverage: animals, fire VFX, more UI).
  * Add rows here to pull in more Sunnyside sheets without touching draw code first.
  */
 export const CURATED_ASSETS = [
@@ -127,9 +127,19 @@ export const CURATED_ASSETS = [
     { key: 'skeleton_walk', url: `${ASSET_ROOT}/Characters/Skeleton/PNG/skeleton_walk_strip8.png`, frames: 8 },
     { key: 'skeleton_attack', url: `${ASSET_ROOT}/Characters/Skeleton/PNG/skeleton_attack_strip7.png`, frames: 7 },
 
+    // Animals (pack has cow/pig/sheep/chicken/duck/bird — no rabbit sheet)
+    { key: 'animal_cow', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_cow_strip4.png`, frames: 4 },
+    { key: 'animal_pig', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_pig_01_strip4.png`, frames: 4 },
+    { key: 'animal_sheep', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_sheep_01_strip4.png`, frames: 4 },
+    { key: 'animal_chicken', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_chicken_01_strip4.png`, frames: 4 },
+    { key: 'animal_duck', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_duck_01_strip4.png`, frames: 4 },
+    { key: 'animal_bird', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_bird_01_strip4.png`, frames: 4 },
+
     // World
     { key: 'tileset_16', url: `${ASSET_ROOT}/Tileset/spr_tileset_sunnysideworld_16px.png` },
     { key: 'tree_deco', url: `${ASSET_ROOT}/Elements/Plants/spr_deco_tree_01_strip4.png`, frames: 4 },
+    { key: 'fire_deco', url: `${ASSET_ROOT}/Elements/VFX/Fire/spr_deco_fire_01_strip4.png`, frames: 4 },
+    { key: 'fire_deco_b', url: `${ASSET_ROOT}/Elements/VFX/Fire/spr_deco_fire_02_strip4.png`, frames: 4 },
 
     // UI icons
     { key: 'ui_sword', url: `${ASSET_ROOT}/UI/sword.png` },
@@ -143,16 +153,26 @@ export const CURATED_ASSETS = [
 
 /**
  * 16px tileset atlas cells (col, row) for key terrain.
- * Inspect / extend by sampling spr_tileset_sunnysideworld_16px.png (64×64 cells).
+ * Hand-picked from spr_tileset_sunnysideworld_16px.png (64×64 cells).
  */
 export const TILE_ATLAS = {
     grassA: { col: 1, row: 1 },
     grassB: { col: 2, row: 1 },
     path: { col: 3, row: 1 },
     water: { col: 4, row: 1 },
-    wall: { col: 7, row: 2 },
+    wall: { col: 8, row: 2 },          // solid slate block (old 7,2 was sparse)
     wood: { col: 14, row: 2 },
-    dirt: { col: 15, row: 2 },
+    dirt: { col: 12, row: 7 },
+    dungeon: { col: 6, row: 1 },       // dark packed earth / stone
+    lava: { col: 12, row: 11 },        // bright magma
+    lavaB: { col: 12, row: 12 },
+    bridge: { col: 14, row: 2 },       // wood plank over chasm
+    chasm: { col: 12, row: 0 },        // pure black void cell
+    temple: { col: 44, row: 1 },       // cool blue stone
+    templeB: { col: 45, row: 1 },
+    fireFloor: { col: 11, row: 4 },    // scorched brown rock
+    volcano: { col: 11, row: 4 },
+    subFloor: { col: 8, row: 2 },
 };
 
 /** Enemy type → Sunnyside character sheet keys. */
@@ -161,6 +181,45 @@ export const ENEMY_SPRITES = {
     snake: { idle: 'skeleton_idle', walk: 'skeleton_walk', attack: 'skeleton_attack' },
 };
 
+/** Animal kind → strip key. Rabbit has no pack sheet → procedural fallback. */
+export const ANIMAL_SPRITES = {
+    cow: 'animal_cow',
+    pig: 'animal_pig',
+    sheep: 'animal_sheep',
+    chicken: 'animal_chicken',
+    duck: 'animal_duck',
+    bird: 'animal_bird',
+    // rabbit intentionally omitted — keep fillRect bunny
+};
+
+/** Boss id → sheet + optional tint + scale. Pack has no unique boss art. */
+export const BOSS_SPRITES = {
+    temple: { idle: 'goblin_idle', walk: 'goblin_walk', tint: '#7e22ce', scale: 1.55 },
+    temple2: { idle: 'skeleton_idle', walk: 'skeleton_walk', tint: '#0284c7', scale: 1.45 },
+    fire: { idle: 'goblin_idle', walk: 'goblin_attack', tint: '#dc2626', scale: 1.7, fire: true },
+    water: { idle: 'skeleton_idle', walk: 'skeleton_walk', tint: '#0369a1', scale: 1.65 },
+};
+
+function parseHexColor(hex) {
+    if (!hex || typeof hex !== 'string') return null;
+    let h = hex.trim();
+    if (h[0] === '#') h = h.slice(1);
+    if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+    if (h.length !== 6) return null;
+    const n = parseInt(h, 16);
+    if (Number.isNaN(n)) return null;
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function isSkinPixel(r, g, b) {
+    // Peach / warm skin range used by Sunnyside Human base.
+    return r > 180 && g > 110 && g < 210 && b > 70 && b < 170 && r > g && g >= b - 10;
+}
+
+function isOutlinePixel(r, g, b) {
+    return r + g + b < 55;
+}
+
 export class AssetLoader {
     constructor() {
         this.images = new Map();
@@ -168,6 +227,9 @@ export class AssetLoader {
         this.failed = new Set();
         this.loaded = false;
         this.progress = 0;
+        this._contentCrop = new Map();   // key → { x, y, w, h }
+        this._recolorCache = new Map();  // cacheKey → canvas
+        this._scratch = null;
     }
 
     async loadImage(key, url, extra = {}) {
@@ -193,6 +255,15 @@ export class AssetLoader {
         if (img.width % frames !== 0 && img.width % 96 === 0) {
             frameW = 96;
             frames = img.width / 96;
+        } else if (img.width % frames !== 0) {
+            // Prefer the largest divisor near the declared frame count.
+            for (let f = frames; f >= 1; f--) {
+                if (img.width % f === 0) {
+                    frames = f;
+                    frameW = img.width / f;
+                    break;
+                }
+            }
         }
         this.meta.set(key, {
             frames,
@@ -241,6 +312,158 @@ export class AssetLoader {
         return { ok, failed, total };
     }
 
+    _ensureScratch(w, h) {
+        if (!this._scratch) {
+            this._scratch = document.createElement('canvas');
+        }
+        if (this._scratch.width < w) this._scratch.width = w;
+        if (this._scratch.height < h) this._scratch.height = h;
+        return this._scratch;
+    }
+
+    /**
+     * Tight content crop inside one frame (trims Sunnyside padding). Cached per key.
+     * Optional pad expands the bbox so outlines aren't clipped.
+     */
+    getContentCrop(key, pad = 2) {
+        const cached = this._contentCrop.get(key);
+        if (cached) return cached;
+        const img = this.getImage(key);
+        const meta = this.getMeta(key);
+        if (!img || !meta) return null;
+
+        const scratch = this._ensureScratch(meta.frameW, meta.frameH);
+        const sctx = scratch.getContext('2d', { willReadFrequently: true });
+        sctx.clearRect(0, 0, meta.frameW, meta.frameH);
+        sctx.drawImage(img, 0, 0, meta.frameW, meta.frameH, 0, 0, meta.frameW, meta.frameH);
+        let data;
+        try {
+            data = sctx.getImageData(0, 0, meta.frameW, meta.frameH).data;
+        } catch (e) {
+            // Tainted / unavailable — fall back to a conservative center crop.
+            const fallback = {
+                x: Math.floor(meta.frameW * 0.35),
+                y: Math.floor(meta.frameH * 0.25),
+                w: Math.floor(meta.frameW * 0.3),
+                h: Math.floor(meta.frameH * 0.5),
+            };
+            this._contentCrop.set(key, fallback);
+            return fallback;
+        }
+
+        let minX = meta.frameW, minY = meta.frameH, maxX = 0, maxY = 0;
+        let found = false;
+        for (let y = 0; y < meta.frameH; y++) {
+            for (let x = 0; x < meta.frameW; x++) {
+                const a = data[(y * meta.frameW + x) * 4 + 3];
+                if (a > 24) {
+                    found = true;
+                    if (x < minX) minX = x;
+                    if (y < minY) minY = y;
+                    if (x > maxX) maxX = x;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        if (!found) {
+            const fallback = { x: 0, y: 0, w: meta.frameW, h: meta.frameH };
+            this._contentCrop.set(key, fallback);
+            return fallback;
+        }
+        minX = Math.max(0, minX - pad);
+        minY = Math.max(0, minY - pad);
+        maxX = Math.min(meta.frameW - 1, maxX + pad);
+        maxY = Math.min(meta.frameH - 1, maxY + pad);
+        const crop = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this._contentCrop.set(key, crop);
+        return crop;
+    }
+
+    /**
+     * Destination size that upscales the tiny padded character to match procedural heroes
+     * (~26×40 fillRect footprint) without looking like a chibi speck in empty padding.
+     */
+    sizedDest(crop, targetH = 40, maxW = 36) {
+        if (!crop || crop.h <= 0) return { dw: 32, dh: targetH };
+        const scale = targetH / crop.h;
+        let dw = Math.round(crop.w * scale);
+        let dh = targetH;
+        if (dw > maxW) {
+            const s = maxW / dw;
+            dw = maxW;
+            dh = Math.round(dh * s);
+        }
+        return { dw, dh };
+    }
+
+    /**
+     * Recolor a strip frame:
+     *  - mode 'hair': non-skin pixels → hairColor (hat dye on hair layer)
+     *  - mode 'body': upper clothing → bodyColor (tunic), lower → legsColor if set
+     * Skin and near-black outlines are preserved. Returns a canvas (cached).
+     */
+    getRecoloredFrame(key, frameIndex, bodyColor = null, hairColor = null, mode = 'body', legsColor = null) {
+        const img = this.getImage(key);
+        const meta = this.getMeta(key);
+        if (!img || !meta) return null;
+        const body = parseHexColor(bodyColor);
+        const hair = parseHexColor(hairColor);
+        const legs = parseHexColor(legsColor);
+        if (!body && !hair && !legs) return null;
+
+        const frames = meta.frames;
+        const fi = ((frameIndex % frames) + frames) % frames;
+        const cacheKey = `${key}|${fi}|${bodyColor || ''}|${hairColor || ''}|${legsColor || ''}|${mode}`;
+        if (this._recolorCache.has(cacheKey)) return this._recolorCache.get(cacheKey);
+
+        const crop = this.getContentCrop(key) || { x: 0, y: 0, w: meta.frameW, h: meta.frameH };
+        const canvas = document.createElement('canvas');
+        canvas.width = crop.w;
+        canvas.height = crop.h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(
+            img,
+            fi * meta.frameW + crop.x, crop.y, crop.w, crop.h,
+            0, 0, crop.w, crop.h
+        );
+        const imageData = ctx.getImageData(0, 0, crop.w, crop.h);
+        const d = imageData.data;
+        // Lower ~35% of the cropped frame ≈ legs / boots on Human sheets.
+        const legsY = Math.floor(crop.h * 0.65);
+        for (let i = 0; i < d.length; i += 4) {
+            const a = d[i + 3];
+            if (a < 20) continue;
+            const r = d[i], g = d[i + 1], b = d[i + 2];
+            if (isOutlinePixel(r, g, b)) continue;
+            if (isSkinPixel(r, g, b)) continue;
+
+            const lum = (r * 0.35 + g * 0.45 + b * 0.2) / 255;
+            const shade = 0.45 + lum * 0.7;
+            const y = Math.floor((i / 4) / crop.w);
+
+            let target = null;
+            if (mode === 'hair' && hair) {
+                target = hair;
+            } else if (mode !== 'hair') {
+                if (legs && y >= legsY) target = legs;
+                else if (body) target = body;
+            }
+            if (!target) continue;
+            d[i] = Math.min(255, Math.round(target.r * shade));
+            d[i + 1] = Math.min(255, Math.round(target.g * shade));
+            d[i + 2] = Math.min(255, Math.round(target.b * shade));
+        }
+        ctx.putImageData(imageData, 0, 0);
+        this._recolorCache.set(cacheKey, canvas);
+        // Soft cap so dye shopping can't balloon memory forever.
+        if (this._recolorCache.size > 256) {
+            const first = this._recolorCache.keys().next().value;
+            this._recolorCache.delete(first);
+        }
+        return canvas;
+    }
+
     /**
      * Draw one frame from a horizontal strip. Returns false if the image is missing.
      * Optional `crop` is { x, y, w, h } inside a single frame (trims Sunnyside padding).
@@ -275,6 +498,45 @@ export class AssetLoader {
     }
 
     /**
+     * Draw a content-cropped (and optionally recolored) strip frame.
+     */
+    drawCroppedStrip(ctx, key, frameIndex, dx, dy, flipX = false, opts = {}) {
+        if (!this.has(key)) return false;
+        const {
+            bodyColor = null,
+            hairColor = null,
+            legsColor = null,
+            mode = 'body',
+            targetH = 40,
+            maxW = 36,
+            footPad = 16,
+        } = opts;
+
+        const crop = this.getContentCrop(key);
+        const { dw, dh } = this.sizedDest(crop, targetH, maxW);
+        const drawY = dy - dh + footPad;
+        const drawX = dx - dw / 2;
+
+        const recolored = (bodyColor || hairColor || legsColor)
+            ? this.getRecoloredFrame(key, frameIndex, bodyColor, hairColor, mode, legsColor)
+            : null;
+
+        if (recolored) {
+            ctx.save();
+            if (flipX) {
+                ctx.translate(drawX + dw, drawY);
+                ctx.scale(-1, 1);
+                ctx.drawImage(recolored, 0, 0, dw, dh);
+            } else {
+                ctx.drawImage(recolored, drawX, drawY, dw, dh);
+            }
+            ctx.restore();
+            return true;
+        }
+        return this.drawStrip(ctx, key, frameIndex, drawX, drawY, dw, dh, flipX, crop);
+    }
+
+    /**
      * Draw a 16px tileset cell scaled to dest size.
      */
     drawTile(ctx, atlasKey, dx, dy, size, variant = 0) {
@@ -284,6 +546,10 @@ export class AssetLoader {
         if (!cell) return false;
         if (atlasKey === 'grassA' || atlasKey === 'grassB') {
             cell = variant % 2 === 0 ? TILE_ATLAS.grassA : TILE_ATLAS.grassB;
+        } else if (atlasKey === 'lava') {
+            cell = variant % 2 === 0 ? TILE_ATLAS.lava : (TILE_ATLAS.lavaB || TILE_ATLAS.lava);
+        } else if (atlasKey === 'temple') {
+            cell = variant % 2 === 0 ? TILE_ATLAS.temple : (TILE_ATLAS.templeB || TILE_ATLAS.temple);
         }
         const ts = 16;
         ctx.drawImage(img, cell.col * ts, cell.row * ts, ts, ts, dx, dy, size, size);
@@ -300,14 +566,13 @@ export class AssetLoader {
     /**
      * Composite Human base + hair (+ optional tools) for the hero.
      * Sprites face right; flipX for left. Up/down reuse the side view (pack has no cardinal sheets).
+     * Applies tunicColor to body clothing and hatColor to hair (outfit dye support).
      */
     drawHeroSprite(ctx, p, moving = false) {
         if (p.outfit === 'diver') return false;
         const attacking = p.attackTimer > 0;
         let baseKey;
         let hairKey;
-        let frames;
-        let frame;
 
         const hairSuffix = p.gender === 'female' ? 'f' : 'm';
 
@@ -315,33 +580,47 @@ export class AssetLoader {
             // Body attack pose only — game weapons stay procedural (sword/bow/claymore).
             baseKey = 'hero_attack_base';
             hairKey = `hero_attack_hair_${hairSuffix}`;
-            frames = this.getMeta(baseKey)?.frames || 10;
-            const progress = 1 - (p.attackTimer / (p.attackDuration || 0.26));
-            frame = Math.min(frames - 1, Math.floor(progress * frames));
         } else if (moving) {
             baseKey = 'hero_walk_base';
             hairKey = `hero_walk_hair_${hairSuffix}`;
-            frames = this.getMeta(baseKey)?.frames || 8;
-            frame = Math.floor(performance.now() / 90) % frames;
         } else {
             baseKey = 'hero_idle_base';
             hairKey = `hero_idle_hair_${hairSuffix}`;
-            frames = this.getMeta(baseKey)?.frames || 9;
-            frame = Math.floor(performance.now() / 140) % frames;
         }
 
         if (!this.has(baseKey)) return false;
 
-        const flipX = p.dir === 'left';
-        // Frames are 96×64 with a tiny ~11×16 character — crop padding then upscale.
-        const crop = { x: 34, y: 16, w: 28, h: 28 };
-        const dw = 44;
-        const dh = 44;
-        const dx = -dw / 2;
-        const dy = -dh + 16;
+        const frames = this.getMeta(baseKey)?.frames || 8;
+        let frame;
+        if (attacking) {
+            const progress = 1 - (p.attackTimer / (p.attackDuration || 0.26));
+            frame = Math.min(frames - 1, Math.floor(progress * frames));
+        } else if (moving) {
+            frame = Math.floor(performance.now() / 90) % frames;
+        } else {
+            frame = Math.floor(performance.now() / 140) % frames;
+        }
 
-        this.drawStrip(ctx, baseKey, frame, dx, dy, dw, dh, flipX, crop);
-        this.drawStrip(ctx, hairKey, frame, dx, dy, dw, dh, flipX, crop);
+        const flipX = p.dir === 'left';
+        const tunic = p.tunicColor || '#16a34a';
+        const hat = p.hatColor || '#15803d';
+        const legs = p.legsColor || '#334155';
+
+        this.drawCroppedStrip(ctx, baseKey, frame, 0, 0, flipX, {
+            bodyColor: tunic,
+            legsColor: legs,
+            targetH: 48,
+            maxW: 38,
+            footPad: 16,
+        });
+        // Hair uses hatColor so Art Shop dye still shows on the sprite-backed hero.
+        this.drawCroppedStrip(ctx, hairKey, frame, 0, 0, flipX, {
+            hairColor: hat,
+            mode: 'hair',
+            targetH: 48,
+            maxW: 38,
+            footPad: 16,
+        });
         return true;
     }
 
@@ -357,10 +636,92 @@ export class AssetLoader {
         const frames = this.getMeta(key)?.frames || 1;
         const frame = Math.floor(e.animPhase || 0) % frames;
         const flipX = Math.cos(e.dirAngle || 0) < 0;
-        const crop = { x: 32, y: 16, w: 32, h: 28 };
-        const dw = 46;
-        const dh = 40;
-        return this.drawStrip(ctx, key, frame, -dw / 2, -dh + 16, dw, dh, flipX, crop);
+        return this.drawCroppedStrip(ctx, key, frame, 0, 0, flipX, {
+            targetH: e.type === 'snake' ? 36 : 40,
+            maxW: 40,
+            footPad: 16,
+        });
+    }
+
+    /**
+     * Farm animals from Elements/Animals. Rabbit (no sheet) returns false.
+     */
+    drawAnimalSprite(ctx, a) {
+        const key = ANIMAL_SPRITES[a.kind];
+        if (!key || !this.has(key)) return false;
+        const frames = this.getMeta(key)?.frames || 1;
+        const speed = a.fleeTimer > 0 ? 70 : 160;
+        const frame = Math.floor(performance.now() / speed) % frames;
+        const flipX = Math.cos(a.dirAngle || 0) < 0;
+        const tall = a.kind === 'cow' || a.kind === 'sheep' || a.kind === 'pig';
+        return this.drawCroppedStrip(ctx, key, frame, 0, 0, flipX, {
+            targetH: tall ? 36 : 28,
+            maxW: tall ? 48 : 32,
+            footPad: 14,
+        });
+    }
+
+    /**
+     * Village NPCs: Human idle base + hair, coat/hair dyed from npc colors.
+     */
+    drawNpcSprite(ctx, npc) {
+        const baseKey = 'hero_idle_base';
+        const hairKey = 'hero_idle_hair_m';
+        if (!this.has(baseKey)) return false;
+        const frames = this.getMeta(baseKey)?.frames || 9;
+        const frame = Math.floor(performance.now() / 160) % frames;
+        this.drawCroppedStrip(ctx, baseKey, frame, 0, 0, false, {
+            bodyColor: npc.coatColor || '#2563eb',
+            legsColor: '#334155',
+            targetH: 46,
+            maxW: 36,
+            footPad: 16,
+        });
+        this.drawCroppedStrip(ctx, hairKey, frame, 0, 0, false, {
+            hairColor: npc.hairColor || '#78350f',
+            mode: 'hair',
+            targetH: 46,
+            maxW: 36,
+            footPad: 16,
+        });
+        return true;
+    }
+
+    /**
+     * Boss stand-ins: tinted/scaled Goblin or Skeleton (+ fire VFX for fire boss).
+     * Attack FX (lasers, claymore arcs) stay procedural in entities.js.
+     */
+    drawBossSprite(ctx, bossId, boss) {
+        const map = BOSS_SPRITES[bossId];
+        if (!map) return false;
+        const moving = boss.state && /swing|spin|laser_fire|wave/.test(boss.state);
+        const key = moving && this.has(map.walk) ? map.walk : map.idle;
+        if (!this.has(key)) return false;
+        const frames = this.getMeta(key)?.frames || 1;
+        const frame = Math.floor(performance.now() / 110) % frames;
+        const flipX = false;
+        const scale = map.scale || 1.5;
+        const crop = this.getContentCrop(key);
+        const base = this.sizedDest(crop, Math.round(42 * scale), Math.round(48 * scale));
+        const recolored = this.getRecoloredFrame(key, frame, map.tint, null, 'body');
+        const dw = base.dw;
+        const dh = base.dh;
+        const dx = -dw / 2;
+        const dy = -dh + 18;
+
+        if (map.fire && this.has('fire_deco')) {
+            const ff = Math.floor(performance.now() / 90) % (this.getMeta('fire_deco')?.frames || 4);
+            const fireCrop = this.getContentCrop('fire_deco');
+            this.drawStrip(ctx, 'fire_deco', ff, -dw * 0.7, -dh * 0.85, dw * 0.55, dh * 0.55, false, fireCrop);
+            this.drawStrip(ctx, 'fire_deco_b', ff, dw * 0.15, -dh * 0.9, dw * 0.55, dh * 0.55, false, this.getContentCrop('fire_deco_b'));
+        }
+
+        if (recolored) {
+            ctx.drawImage(recolored, dx, dy, dw, dh);
+        } else {
+            this.drawStrip(ctx, key, frame, dx, dy, dw, dh, flipX, crop);
+        }
+        return true;
     }
 }
 
