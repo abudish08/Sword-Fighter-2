@@ -1,0 +1,72 @@
+/* Sword Fighter 2 — extracted styles (Phase 1) */
+:root {
+            --title-font: 'Press Start 2P', monospace;
+            --body-font: 'VT323', monospace;
+        }
+        * {
+            border-radius: 0px !important;
+            image-rendering: pixelated;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #090d16;
+            color: #f8fafc;
+            font-family: var(--body-font);
+            font-size: 18px;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .title-font {
+            font-family: var(--title-font);
+            letter-spacing: 1px;
+        }
+        canvas {
+            display: block;
+            cursor: crosshair;
+            image-rendering: pixelated;
+        }
+        .hd-panel {
+            background: #0f172a;
+            border: 4px solid #f59e0b;
+            box-shadow: 6px 6px 0px #000000;
+            border-radius: 0px !important;
+        }
+        .hd-btn {
+            background: #f59e0b;
+            border: 3px solid #fef3c7;
+            box-shadow: 4px 4px 0 #78350f;
+            color: #0f172a;
+            font-weight: 800;
+            border-radius: 0px !important;
+            transition: transform 0.05s steps(2);
+        }
+        .hd-btn:hover {
+            background: #fbbf24;
+            transform: translate(-1px, -1px);
+        }
+        .hd-btn:active {
+            transform: translate(3px, 3px);
+            box-shadow: 1px 1px 0 #78350f;
+        }
+        .hd-btn-secondary {
+            background: #1e293b;
+            border: 3px solid #94a3b8;
+            box-shadow: 4px 4px 0 #020617;
+            color: #f8fafc;
+            font-weight: 700;
+            border-radius: 0px !important;
+            transition: transform 0.05s steps(2);
+        }
+        .hd-btn-secondary:hover {
+            border-color: #fbbf24;
+            color: #fef08a;
+        }
+        .hd-btn-secondary:active {
+            transform: translate(3px, 3px);
+            box-shadow: 1px 1px 0 #020617;
+        }
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #f59e0b; }

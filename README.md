@@ -12,8 +12,15 @@ Once the repo is public and GitHub Pages is enabled, open:
 **https://abudish08.github.io/Sword-Fighter-2/**
 
 ### Locally
-1. Download or clone the repo
-2. Open `index.html` in any modern browser (Chrome, Firefox, Edge, Safari)
+ES modules need a tiny local web server (opening `index.html` as a `file://` page will not load `js/*.js`).
+
+```bash
+# From the repo folder:
+python3 -m http.server 8000
+# Then open http://localhost:8000
+```
+
+Or any other static server (VS Code Live Server, `npx serve`, etc.).
 
 ## Controls
 
