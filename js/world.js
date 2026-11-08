@@ -982,42 +982,66 @@ export const worldMethods = {
                       }
                   }
               } else if (t === T_DUNGEON_FLOOR || t === T_TEMPLE2_FLOOR || t === T_FIRE_FLOOR || t === T_WATER_TEMPLE_FLOOR || t === T_SUB_FLOOR) {
+                  let tiled = false;
                   if (t === T_TEMPLE2_FLOOR || t === T_WATER_TEMPLE_FLOOR) {
-                      ctx.fillStyle = ((x + y) % 2 === 0) ? '#0c4a6e' : '#082f49';
+                      tiled = assets.drawTile(ctx, 'temple', px, py, TILE, x + y);
                   } else if (t === T_FIRE_FLOOR) {
-                      ctx.fillStyle = ((x + y) % 2 === 0) ? '#450a0a' : '#2a0606';
+                      tiled = assets.drawTile(ctx, 'fireFloor', px, py, TILE);
                   } else if (t === T_SUB_FLOOR) {
-                      ctx.fillStyle = ((x + y) % 2 === 0) ? '#334155' : '#1e293b';
+                      tiled = assets.drawTile(ctx, 'subFloor', px, py, TILE);
                   } else {
-                      ctx.fillStyle = ((x + y) % 2 === 0) ? '#1e293b' : '#0f172a';
+                      tiled = assets.drawTile(ctx, 'dungeon', px, py, TILE);
                   }
-                  ctx.fillRect(px, py, TILE, TILE);
-                  ctx.fillStyle = 'rgba(255,255,255,0.06)';
-                  ctx.fillRect(px + 2, py + 2, TILE - 4, 2);
+                  if (!tiled) {
+                      if (t === T_TEMPLE2_FLOOR || t === T_WATER_TEMPLE_FLOOR) {
+                          ctx.fillStyle = ((x + y) % 2 === 0) ? '#0c4a6e' : '#082f49';
+                      } else if (t === T_FIRE_FLOOR) {
+                          ctx.fillStyle = ((x + y) % 2 === 0) ? '#450a0a' : '#2a0606';
+                      } else if (t === T_SUB_FLOOR) {
+                          ctx.fillStyle = ((x + y) % 2 === 0) ? '#334155' : '#1e293b';
+                      } else {
+                          ctx.fillStyle = ((x + y) % 2 === 0) ? '#1e293b' : '#0f172a';
+                      }
+                      ctx.fillRect(px, py, TILE, TILE);
+                      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+                      ctx.fillRect(px + 2, py + 2, TILE - 4, 2);
+                  }
               } else if (t === T_VOLCANO_ROCK) {
-                  ctx.fillStyle = ((x + y) % 2 === 0) ? '#451a03' : '#290f02';
-                  ctx.fillRect(px, py, TILE, TILE);
-                  ctx.fillStyle = '#78350f';
-                  ctx.fillRect(px + 6, py + 8, 12, 8);
-                  ctx.fillRect(px + 24, py + 24, 10, 8);
+                  if (!assets.drawTile(ctx, 'volcano', px, py, TILE)) {
+                      ctx.fillStyle = ((x + y) % 2 === 0) ? '#451a03' : '#290f02';
+                      ctx.fillRect(px, py, TILE, TILE);
+                      ctx.fillStyle = '#78350f';
+                      ctx.fillRect(px + 6, py + 8, 12, 8);
+                      ctx.fillRect(px + 24, py + 24, 10, 8);
+                  }
               } else if (t === T_LAVA) {
-                  ctx.fillStyle = '#dc2626';
-                  ctx.fillRect(px, py, TILE, TILE);
-                  const shift = Math.floor(performance.now() / 220 + x + y) % 2;
-                  ctx.fillStyle = shift === 0 ? '#f97316' : '#facc15';
-                  ctx.fillRect(px + 6, py + 10, 14, 6);
-                  ctx.fillRect(px + 22, py + 26, 14, 6);
+                  const lavaShift = Math.floor(performance.now() / 220 + x + y);
+                  if (!assets.drawTile(ctx, 'lava', px, py, TILE, lavaShift)) {
+                      ctx.fillStyle = '#dc2626';
+                      ctx.fillRect(px, py, TILE, TILE);
+                      const shift = lavaShift % 2;
+                      ctx.fillStyle = shift === 0 ? '#f97316' : '#facc15';
+                      ctx.fillRect(px + 6, py + 10, 14, 6);
+                      ctx.fillRect(px + 22, py + 26, 14, 6);
+                  }
               } else if (t === T_CHASM) {
-                  ctx.fillStyle = '#020617';
-                  ctx.fillRect(px, py, TILE, TILE);
+                  if (!assets.drawTile(ctx, 'chasm', px, py, TILE)) {
+                      ctx.fillStyle = '#020617';
+                      ctx.fillRect(px, py, TILE, TILE);
+                  }
               } else if (t === T_BRIDGE_SAFE || t === T_BRIDGE_TRAP) {
-                  ctx.fillStyle = '#020617';
-                  ctx.fillRect(px, py, TILE, TILE);
-                  ctx.fillStyle = '#78350f';
-                  ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
-                  ctx.fillStyle = '#451a03';
-                  ctx.fillRect(px + 4, py + 14, TILE - 8, 2);
-                  ctx.fillRect(px + 4, py + 28, TILE - 8, 2);
+                  // Void underlay + wood plank sprite when available.
+                  if (!assets.drawTile(ctx, 'chasm', px, py, TILE)) {
+                      ctx.fillStyle = '#020617';
+                      ctx.fillRect(px, py, TILE, TILE);
+                  }
+                  if (!assets.drawTile(ctx, 'bridge', px + 2, py + 2, TILE - 4)) {
+                      ctx.fillStyle = '#78350f';
+                      ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+                      ctx.fillStyle = '#451a03';
+                      ctx.fillRect(px + 4, py + 14, TILE - 8, 2);
+                      ctx.fillRect(px + 4, py + 28, TILE - 8, 2);
+                  }
               } else if (t === T_WOOD_FLOOR) {
                   if (!assets.drawTile(ctx, 'wood', px, py, TILE)) {
                       ctx.fillStyle = '#7c2d12';
