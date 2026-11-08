@@ -13,7 +13,7 @@ Tileset/      16px world + 32px forest sheets
 UI/           HUD bars, cursors, tools, expressions
 ```
 
-The game loads a **curated expanded slice** via `js/assets.js` (`CURATED_ASSETS`): hero layers, goblin/skeleton enemies, farm animals, fire VFX, tileset cells (grass/path/water/wall/wood/dungeon/lava/bridge/temple/volcano), and UI icons. Content is auto-cropped (padding trimmed) and outfit dye recolors hero/NPC clothing + hair. Missing mappings still use procedural `fillRect` fallbacks.
+The game loads a **curated expanded slice** via `js/assets.js` (`CURATED_ASSETS`): full Human action layers (idle/walk/run/attack/hurt/cast/wait/reel/caught/swim/death), goblin/skeleton enemy clips (idle/walk/run/attack/hurt/death), farm animals, fire VFX, tileset cells, and UI icons. Animation is driven from player/enemy state with frame timing; missing clips fall back to another strip or procedural `fillRect` drawing. Content is auto-cropped and outfit dye recolors hero/NPC clothing + hair.
 
 Serve the **repo root** with a static server so URLs like `public/assets/sunnyside/...` resolve.
 

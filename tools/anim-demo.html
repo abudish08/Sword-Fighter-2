@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sunnyside anim demo</title>
+  <style>
+    body { margin: 0; background: #1e3a2f; font-family: monospace; color: #f8fafc; }
+    #grid { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; }
+    .card { background: #14532d; border: 2px solid #86efac; padding: 8px; text-align: center; }
+    canvas { image-rendering: pixelated; background: linear-gradient(#4ade80, #166534); width: 160px; height: 160px; }
+    h1 { font-size: 14px; margin: 12px 16px; }
+  </style>
+</head>
+<body>
+  <h1 id="status">Loading…</h1>
+  <div id="grid"></div>
+  <script type="module">
+    import { assets, CURATED_ASSETS } from '../js/assets.js';
+
+    const ACTIONS = [
+      'idle', 'walk', 'run', 'attack', 'hurt',
+      'casting', 'waiting', 'reeling', 'caught', 'swimming', 'death',
+    ];
+
+    const result = await assets.loadAll(CURATED_ASSETS);
+    document.getElementById('status').textContent =
+      `Loaded ${result.ok}/${result.total} (failed ${result.failed})`;
+
+    const grid = document.getElementById('grid');
+    const now = performance.now();
+
+    for (const action of ACTIONS) {
+      const baseKey = `hero_${action}_base`;
+      const hairKey = `hero_${action}_hair_m`;
+      const toolsKey = `hero_${action}_tools`;
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.action = action;
+      const label = document.createElement('div');
+      label.textContent = action + (assets.has(baseKey) ? '' : ' MISSING');
+      const canvas = document.createElement('canvas');
+      canvas.width = 96;
+      canvas.height = 96;
+      canvas.id = `anim-${action}`;
+      card.appendChild(label);
+      card.appendChild(canvas);
+      grid.appendChild(card);
+
+      if (!assets.has(baseKey)) continue;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.translate(48, 70);
+      const frames = assets.getMeta(baseKey)?.frames || 1;
+      const frame = Math.floor(now / 80) % frames;
+      const p = {
+        gender: 'male',
+        tunicColor: '#16a34a',
+        hatColor: '#15803d',
+        legsColor: '#334155',
+        dir: 'right',
+        outfit: 'tunic',
+        attackTimer: action === 'attack' ? 0.1 : 0,
+        attackDuration: 0.26,
+        bowAnimTimer: 0,
+        hurtAnimTimer: action === 'hurt' ? 0.2 : 0,
+        hurtAnimDuration: 0.42,
+        onWater: action === 'swimming',
+        fishingState: ['casting', 'waiting', 'reeling', 'caught'].includes(action)
+          ? { state: action, timer: 0.25, animDuration: 0.55 }
+          : null,
+        moving: action === 'walk' || action === 'run',
+        shielding: false,
+        activeMeleeSlot: 'sword',
+      };
+      // Force the action by temporarily stubbing resolver via direct draw.
+      assets.drawCroppedStrip(ctx, baseKey, frame, 0, 0, false, {
+        bodyColor: p.tunicColor, legsColor: p.legsColor, targetH: 48, maxW: 38, footPad: 16,
+      });
+      assets.drawCroppedStrip(ctx, hairKey, frame, 0, 0, false, {
+        hairColor: p.hatColor, mode: 'hair', targetH: 48, maxW: 38, footPad: 16,
+      });
+      if (['casting', 'waiting', 'reeling', 'caught'].includes(action) && assets.has(toolsKey)) {
+        assets.drawCroppedStrip(ctx, toolsKey, frame, 0, 0, false, { targetH: 48, maxW: 38, footPad: 16 });
+      }
+    }
+
+    // Enemy samples
+    for (const [label, key] of [
+      ['goblin_run', 'goblin_run'],
+      ['goblin_hurt', 'goblin_hurt'],
+      ['goblin_attack', 'goblin_attack'],
+      ['skeleton_hurt', 'skeleton_hurt'],
+      ['skeleton_attack', 'skeleton_attack'],
+    ]) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.action = label;
+      const title = document.createElement('div');
+      title.textContent = label;
+      const canvas = document.createElement('canvas');
+      canvas.width = 96;
+      canvas.height = 96;
+      canvas.id = `anim-${label}`;
+      card.appendChild(title);
+      card.appendChild(canvas);
+      grid.appendChild(card);
+      if (!assets.has(key)) continue;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.translate(48, 70);
+      const frames = assets.getMeta(key)?.frames || 1;
+      assets.drawCroppedStrip(ctx, key, Math.floor(now / 80) % frames, 0, 0, false, {
+        targetH: 40, maxW: 40, footPad: 16,
+      });
+    }
+
+    document.body.dataset.ready = '1';
+  </script>
+</body>
+</html>

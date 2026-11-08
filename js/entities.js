@@ -37,7 +37,13 @@ export const entityMethods = {
           dirAngle: Math.random() * Math.PI * 2,
           wanderTimer: 1.5,
           hurtTimer: 0,
+          hurtDuration: 0.4,
           attackCooldown: 0,
+          attackAnimTimer: 0,
+          attackAnimDuration: 0.4,
+          dying: false,
+          deathTimer: 0,
+          deathDuration: 0.55,
           animPhase: Math.random() * 10
       });
   },
@@ -63,10 +69,15 @@ export const entityMethods = {
           if (Math.hypot(e.x - hx, e.y - hy) <= radius) {
               const actualDmg = attackKind === 'ice_arrow' ? 8 : dmg;
               e.hp -= actualDmg;
-              e.hurtTimer = 0.2;
+              e.hurtDuration = 0.4;
+              e.hurtTimer = e.hurtDuration;
               sfx.hit();
               this.addFloatingText(e.x, e.y - 14, `-${actualDmg} HP`, "#f87171");
-              if (e.hp <= 0) {
+              if (e.hp <= 0 && !e.dying) {
+                  e.dying = true;
+                  e.deathDuration = 0.55;
+                  e.deathTimer = e.deathDuration;
+                  e.hp = 0;
                   this.player.coins += 4;
                   if (e.isFirstBlob) {
                       this.dungeonProgress.firstBlobDefeated = true;
@@ -74,7 +85,6 @@ export const entityMethods = {
                   }
                   if (this.quests.monster.status === 'active') this.quests.monster.current++;
                   if (Math.random() < 0.5) this.lootDrops.push({ x: e.x, y: e.y, type: 'pork' });
-                  this.enemies.splice(i, 1);
                   this.updateHUD();
                   this.updateQuestTracker();
               }

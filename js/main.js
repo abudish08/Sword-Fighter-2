@@ -384,10 +384,21 @@ class Game {
         }
 
         // Enemies
-        for (const e of this.enemies) {
+        for (let ei = this.enemies.length - 1; ei >= 0; ei--) {
+            const e = this.enemies[ei];
             e.animPhase += dt * 8;
             if (e.hurtTimer > 0) e.hurtTimer -= dt;
             if (e.attackCooldown > 0) e.attackCooldown -= dt;
+            if (e.attackAnimTimer > 0) e.attackAnimTimer -= dt;
+
+            // Play death strip, then remove (loot/coins already awarded on fatal hit).
+            if (e.dying) {
+                e._spriteMoving = false;
+                e._spriteChasing = false;
+                e.deathTimer -= dt;
+                if (e.deathTimer <= 0) this.enemies.splice(ei, 1);
+                continue;
+            }
 
             let targetHero = null;
             let bestDist = 170;
@@ -404,16 +415,20 @@ class Game {
                 const ang = Math.atan2(targetHero.y - e.y, targetHero.x - e.x);
                 e.dirAngle = ang;
                 e._spriteMoving = true;
+                e._spriteChasing = true;
                 const mx = Math.cos(ang) * e.speed * dt;
                 const my = Math.sin(ang) * e.speed * dt;
                 if (this.canWalk(e.x + mx, e.y)) e.x += mx;
                 if (this.canWalk(e.x, e.y + my)) e.y += my;
                 if (bestDist < 28 && e.attackCooldown <= 0) {
                     e.attackCooldown = 1.1;
+                    e.attackAnimDuration = 0.4;
+                    e.attackAnimTimer = e.attackAnimDuration;
                     this.damagePlayer(0.5, e.type === 'blob' ? "Pink Blob" : "Green Snake", targetHero);
                 }
             } else {
                 e._spriteMoving = true;
+                e._spriteChasing = false;
                 e.wanderTimer -= dt;
                 if (e.wanderTimer <= 0) {
                     e.wanderTimer = 1.5 + Math.random() * 1.5;
