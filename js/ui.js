@@ -403,6 +403,37 @@ export const uiMethods = {
       fctx.imageSmoothingEnabled = false;
       fctx.clearRect(0, 0, c.width, c.height);
 
+      // Prefer Sunnyside fish sprite + tint; keep procedural fish drawings as fallback.
+      if (assets.has('item_fish')) {
+          fctx.save();
+          fctx.translate(110, 62);
+          const tint = {
+              salmon: '#ef4444',
+              trout: '#15803d',
+              silver_fish: '#cbd5e1',
+              bull_eye: '#78350f',
+          }[fish.key] || '#38bdf8';
+          // Soft disc behind catch
+          if (assets.has('ui_itemdisc')) {
+              assets.drawImage(fctx, 'ui_itemdisc', -36, -36, 72, 72);
+          }
+          fctx.save();
+          // Recolor via destination-in style: draw fish, then multiply tint overlay.
+          assets.drawImage(fctx, 'item_fish', -40, -36, 80, 72);
+          fctx.globalCompositeOperation = 'source-atop';
+          fctx.fillStyle = tint;
+          fctx.globalAlpha = fish.key === 'silver_fish' ? 0.35 : 0.45;
+          fctx.fillRect(-40, -36, 80, 72);
+          fctx.restore();
+          if (fish.key === 'bull_eye') {
+              fctx.fillStyle = '#fde68a';
+              fctx.fillRect(18, -40, 10, 14);
+          }
+          assets.drawGlint(fctx, 24, -20, 0);
+          fctx.restore();
+          return;
+      }
+
       fctx.save();
       fctx.translate(110, 62);
 
@@ -863,9 +894,10 @@ export const uiMethods = {
           document.getElementById('inv-food-list').innerHTML = `
               <div>🥩 <strong>Pork:</strong> ${this.player.pork} (+1❤️)</div>
               <div>🍎 <strong>Golden Apples:</strong> ${this.player.goldenApples} (+1💛)</div>
-              <div class="border-t border-slate-700 pt-1 mt-1 font-bold text-sky-300">Caught Fish:</div>
+              <div class="border-t border-slate-700 pt-1 mt-1 font-bold text-sky-300">Caught Fish: 🎣</div>
               <div>• Salmon ($15): ${f.salmon || 0} | Trout ($15): ${f.trout || 0}</div>
               <div>• Silver Fish ($20): ${f.silver_fish || 0} | Bull Eye ($20): ${f.bull_eye || 0}</div>
+              <div class="text-[11px] text-slate-400 mt-1">Catch preview uses Sunnyside fish art when loaded.</div>
           `;
       }
   },
@@ -989,7 +1021,7 @@ export const uiMethods = {
       let bestDist = 56;
       for (const obj of this.interactables) {
           if (obj.type === 'flower' && obj.picked) continue;
-          if (obj.type === 'wheat' && obj.harvested) continue;
+          if ((obj.type === 'wheat' || obj.type === 'crop') && ((obj.stage ?? 5) < 5 || obj.harvested)) continue;
           const d = Math.hypot((obj.x + TILE / 2) - actor.x, (obj.y + TILE / 2) - actor.y);
           if (d < bestDist) {
               bestDist = d;

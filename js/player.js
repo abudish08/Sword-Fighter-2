@@ -763,10 +763,11 @@ export const playerMethods = {
           ctx.restore();
       }
 
-      // Blocky Fishing Bobber
+      // Fishing bobber + bite/catch feedback (Sunnyside rod / glint / alert when available)
       if (p.fishingState) {
-          const bx = Math.floor(p.fishingState.bobberX - p.x);
-          const by = Math.floor(p.fishingState.bobberY - p.y);
+          const fs = p.fishingState;
+          const bx = Math.floor(fs.bobberX - p.x);
+          const by = Math.floor(fs.bobberY - p.y);
           ctx.strokeStyle = '#e2e8f0';
           ctx.lineWidth = 2;
           ctx.beginPath();
@@ -774,11 +775,31 @@ export const playerMethods = {
           ctx.lineTo(bx, by);
           ctx.stroke();
 
-          const bobOffset = Math.floor(Math.sin(performance.now() / 140) * 2);
-          ctx.fillStyle = '#ef4444';
+          const bitePulse = fs.state === 'bite';
+          const bobOffset = Math.floor(Math.sin(performance.now() / (bitePulse ? 70 : 140)) * (bitePulse ? 4 : 2));
+
+          // Rod icon near hero hand when casting / waiting (tools strip already draws on hero)
+          if (fs.state === 'casting' || fs.state === 'waiting') {
+              assets.drawUiIcon(ctx, 'ui_rod', 10, -28, 16);
+          }
+
+          ctx.fillStyle = bitePulse ? '#facc15' : '#ef4444';
           ctx.fillRect(bx - 5, by - 5 + bobOffset, 10, 10);
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(bx - 3, by - 5 + bobOffset, 6, 4);
+
+          if (bitePulse) {
+              assets.drawGlint(ctx, bx, by - 14 + bobOffset, 0);
+              if (!assets.drawUiIcon(ctx, 'ui_alert', bx - 4, by - 28 + bobOffset, 12)) {
+                  ctx.fillStyle = '#fef08a';
+                  ctx.font = 'bold 14px VT323';
+                  ctx.fillText('!', bx - 2, by - 16 + bobOffset);
+              }
+          }
+          if (fs.state === 'caught' || fs.state === 'reeling') {
+              assets.drawItemIcon(ctx, 'fish', bx, by - 18 + bobOffset, 18);
+              assets.drawGlint(ctx, bx + 8, by - 24 + bobOffset, 1);
+          }
       }
 
       if (this.isMultiplayer) {
