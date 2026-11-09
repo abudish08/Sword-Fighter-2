@@ -65,17 +65,17 @@ Or any other static server (VS Code Live Server, `npx serve`, etc.).
 - 4 save slots (stored in browser localStorage)
 - Split-screen multiplayer
 - Retro chiptune music and sound effects
-- Sunnyside World sprites where mapped (hero, goblin/skeleton enemies, key tiles, a few UI icons), with procedural `fillRect` fallback
+- Sunnyside World sprites where mapped (hero, enemies, animals/NPCs, biomes, UI), with procedural `fillRect` fallback
 
 ## Art assets (Sunnyside)
 
-Pack files live in `public/assets/sunnyside/`. On boot, `js/assets.js` loads a **curated first slice** (see `CURATED_ASSETS`) with a progress bar. Missing images do not block play — draws fall back to the original blocky Canvas path.
+Pack files live in `public/assets/sunnyside/`. On boot, `js/assets.js` loads a **curated slice** (see `CURATED_ASSETS`) with a progress bar. Missing images do not block play — draws fall back to the original blocky Canvas path.
 
-**Currently sprite-backed:** Human hero (idle/walk/attack layers), Goblin→blob & Skeleton→snake, grass/path/water/wall/wood tiles + tree deco, title/HUD sword icon.
+**Currently sprite-backed:** Human hero action set, Goblin→blob & Skeleton→snake, animals/NPCs/boss stand-ins, Oakvale/temple/ocean/volcano tiles + plant/foam/fire/glint/coracle deco, title/HUD icons.
 
-**Still procedural:** bosses, animals, NPCs, diving outfit, dungeon/lava/bridge tiles, most HUD emoji, weapons/FX overlays.
+**Still procedural:** lava magma fill (pack has no lava cell — fire VFX overlays it), diving outfit, most building roofs / interactable props, HUD emoji, weapons/FX overlays.
 
-**Adding more:** append a `{ key, url, frames? }` row to `CURATED_ASSETS` in `js/assets.js`, map it in `TILE_ATLAS` / `ENEMY_SPRITES` (or call `assets.drawStrip` / `assets.drawTile` from the draw path), and keep the `fillRect` branch as fallback. Details are in the header comment of `js/assets.js`.
+**Adding more:** append a `{ key, url, frames? }` row to `CURATED_ASSETS` in `js/assets.js`, map it in `TILE_ATLAS` / `ENEMY_SPRITES` (or call `assets.drawStrip` / `assets.drawTile` / `assets.drawEnvDeco` from the draw path), and keep the `fillRect` branch as fallback. Biome smoke: `tools/env-demo.html`.
 
 ## Tips
 - Explore West for the ocean and submarine, East for the volcano.
