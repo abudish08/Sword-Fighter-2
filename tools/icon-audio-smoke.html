@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SF2 icon/audio smoke</title>
+  <style>
+    body { font: 14px/1.4 ui-monospace, monospace; background: #0f172a; color: #e2e8f0; padding: 1.5rem; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body>
+  <p>Loading curated UI icons + samples…</p>
+  <pre id="out">…</pre>
+  <script type="module">
+    import { assets, CURATED_ASSETS, UI_ICONS, sfx } from '/js/assets.js';
+    const subset = CURATED_ASSETS.filter((e) =>
+      e.key.startsWith('ui_') ||
+      e.key.startsWith('kenney_') ||
+      e.key.startsWith('cc0_') ||
+      e.key === 'item_egg' ||
+      e.key === 'crop_pumpkin_5'
+    );
+    const r = await assets.loadAll(subset);
+    await sfx.preloadSamples();
+    const report = {};
+    for (const [role, key] of Object.entries(UI_ICONS)) {
+      report[role] = { key, has: assets.has(key), failed: assets.failed.has(key) };
+    }
+    report.cc0_hearts = { has: assets.has('cc0_hearts'), meta: assets.getMeta('cc0_hearts') };
+    report.samples = sfx.buffers.size;
+    report.load = r;
+    const payload = { report, failed: [...assets.failed] };
+    document.getElementById('out').textContent = JSON.stringify(payload, null, 2);
+  </script>
+</body>
+</html>
