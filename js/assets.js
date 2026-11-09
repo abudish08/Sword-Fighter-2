@@ -99,33 +99,76 @@ class SoundSystem {
 
 export const sfx = new SoundSystem();
 
-/** Root URL when serving the repo with a static server (no Vite yet). */
-export const ASSET_ROOT = 'public/assets/sunnyside';
+/** Root URL when serving the repo with a static server (no Vite yet).
+ * Leading slash so strips resolve from any page path (e.g. /tools/anim-demo.html).
+ */
+export const ASSET_ROOT = '/public/assets/sunnyside';
 
 /**
  * Curated key → file map (expanded coverage: animals, fire VFX, more UI).
  * Add rows here to pull in more Sunnyside sheets without touching draw code first.
  */
-export const CURATED_ASSETS = [
-    // Hero (Human layered strips)
-    { key: 'hero_idle_base', url: `${ASSET_ROOT}/Characters/Human/IDLE/base_idle_strip9.png`, frames: 9 },
-    { key: 'hero_idle_hair_m', url: `${ASSET_ROOT}/Characters/Human/IDLE/spikeyhair_idle_strip9.png`, frames: 9 },
-    { key: 'hero_idle_hair_f', url: `${ASSET_ROOT}/Characters/Human/IDLE/longhair_idle_strip9.png`, frames: 9 },
-    { key: 'hero_walk_base', url: `${ASSET_ROOT}/Characters/Human/WALKING/base_walk_strip8.png`, frames: 8 },
-    { key: 'hero_walk_hair_m', url: `${ASSET_ROOT}/Characters/Human/WALKING/spikeyhair_walk_strip8.png`, frames: 8 },
-    { key: 'hero_walk_hair_f', url: `${ASSET_ROOT}/Characters/Human/WALKING/longhair_walk_strip8.png`, frames: 8 },
-    { key: 'hero_attack_base', url: `${ASSET_ROOT}/Characters/Human/ATTACK/base_attack_strip10.png`, frames: 10 },
-    { key: 'hero_attack_hair_m', url: `${ASSET_ROOT}/Characters/Human/ATTACK/spikeyhair_attack_strip10.png`, frames: 10 },
-    { key: 'hero_attack_hair_f', url: `${ASSET_ROOT}/Characters/Human/ATTACK/longhair_attack_strip10.png`, frames: 10 },
-    { key: 'hero_attack_tools', url: `${ASSET_ROOT}/Characters/Human/ATTACK/tools_attack_strip10.png`, frames: 10 },
+/** Human action folders → strip name + frame count (filename stripN). */
+export const HERO_ACTION_DEFS = {
+    idle: { folder: 'IDLE', name: 'idle', frames: 9 },
+    walk: { folder: 'WALKING', name: 'walk', frames: 8 },
+    run: { folder: 'RUN', name: 'run', frames: 8 },
+    attack: { folder: 'ATTACK', name: 'attack', frames: 10 },
+    hurt: { folder: 'HURT', name: 'hurt', frames: 8 },
+    casting: { folder: 'CASTING', name: 'casting', frames: 15 },
+    waiting: { folder: 'WAITING', name: 'waiting', frames: 9 },
+    reeling: { folder: 'REELING', name: 'reeling', frames: 13 },
+    caught: { folder: 'CAUGHT', name: 'caught', frames: 10 },
+    swimming: { folder: 'SWIMMING', name: 'swimming', frames: 12 },
+    death: { folder: 'DEATH', name: 'death', frames: 13 },
+};
 
-    // Enemies
+function heroStripEntries() {
+    const hairStyles = [
+        { suffix: 'm', file: 'spikeyhair' },
+        { suffix: 'f', file: 'longhair' },
+    ];
+    const entries = [];
+    for (const [action, def] of Object.entries(HERO_ACTION_DEFS)) {
+        const base = `${ASSET_ROOT}/Characters/Human/${def.folder}`;
+        entries.push({
+            key: `hero_${action}_base`,
+            url: `${base}/base_${def.name}_strip${def.frames}.png`,
+            frames: def.frames,
+        });
+        for (const h of hairStyles) {
+            entries.push({
+                key: `hero_${action}_hair_${h.suffix}`,
+                url: `${base}/${h.file}_${def.name}_strip${def.frames}.png`,
+                frames: def.frames,
+            });
+        }
+        // Rod / tools layer for fishing poses (and available for other actions).
+        entries.push({
+            key: `hero_${action}_tools`,
+            url: `${base}/tools_${def.name}_strip${def.frames}.png`,
+            frames: def.frames,
+        });
+    }
+    return entries;
+}
+
+export const CURATED_ASSETS = [
+    // Hero (Human layered strips — full action set that maps to game states)
+    ...heroStripEntries(),
+
+    // Enemies (Goblin → blob, Skeleton → snake)
     { key: 'goblin_idle', url: `${ASSET_ROOT}/Characters/Goblin/PNG/spr_idle_strip9.png`, frames: 9 },
     { key: 'goblin_walk', url: `${ASSET_ROOT}/Characters/Goblin/PNG/spr_walk_strip8.png`, frames: 8 },
+    { key: 'goblin_run', url: `${ASSET_ROOT}/Characters/Goblin/PNG/spr_run_strip8.png`, frames: 8 },
     { key: 'goblin_attack', url: `${ASSET_ROOT}/Characters/Goblin/PNG/spr_attack_strip10.png`, frames: 10 },
+    { key: 'goblin_hurt', url: `${ASSET_ROOT}/Characters/Goblin/PNG/spr_hurt_strip8.png`, frames: 8 },
+    { key: 'goblin_death', url: `${ASSET_ROOT}/Characters/Goblin/PNG/spr_death_strip13.png`, frames: 13 },
     { key: 'skeleton_idle', url: `${ASSET_ROOT}/Characters/Skeleton/PNG/skeleton_idle_strip6.png`, frames: 6 },
     { key: 'skeleton_walk', url: `${ASSET_ROOT}/Characters/Skeleton/PNG/skeleton_walk_strip8.png`, frames: 8 },
     { key: 'skeleton_attack', url: `${ASSET_ROOT}/Characters/Skeleton/PNG/skeleton_attack_strip7.png`, frames: 7 },
+    { key: 'skeleton_hurt', url: `${ASSET_ROOT}/Characters/Skeleton/PNG/skeleton_hurt_strip7.png`, frames: 7 },
+    { key: 'skeleton_death', url: `${ASSET_ROOT}/Characters/Skeleton/PNG/skeleton_death_strip10.png`, frames: 10 },
 
     // Animals (pack has cow/pig/sheep/chicken/duck/bird — no rabbit sheet)
     { key: 'animal_cow', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_cow_strip4.png`, frames: 4 },
@@ -177,8 +220,36 @@ export const TILE_ATLAS = {
 
 /** Enemy type → Sunnyside character sheet keys. */
 export const ENEMY_SPRITES = {
-    blob: { idle: 'goblin_idle', walk: 'goblin_walk', attack: 'goblin_attack' },
-    snake: { idle: 'skeleton_idle', walk: 'skeleton_walk', attack: 'skeleton_attack' },
+    blob: {
+        idle: 'goblin_idle',
+        walk: 'goblin_walk',
+        run: 'goblin_run',
+        attack: 'goblin_attack',
+        hurt: 'goblin_hurt',
+        death: 'goblin_death',
+    },
+    snake: {
+        idle: 'skeleton_idle',
+        walk: 'skeleton_walk',
+        attack: 'skeleton_attack',
+        hurt: 'skeleton_hurt',
+        death: 'skeleton_death',
+    },
+};
+
+/** Frame timing (ms per frame) for looping clips. One-shots use progress instead. */
+export const ANIM_FRAME_MS = {
+    idle: 140,
+    walk: 90,
+    run: 70,
+    swimming: 85,
+    waiting: 150,
+    casting: 70,
+    reeling: 65,
+    caught: 80,
+    hurt: 70,
+    attack: 55,
+    death: 70,
 };
 
 /** Animal kind → strip key. Rabbit has no pack sheet → procedural fallback. */
@@ -564,77 +635,157 @@ export class AssetLoader {
     }
 
     /**
-     * Composite Human base + hair (+ optional tools) for the hero.
+     * Pick hero action from entity state. Missing clips fall through to a safer action.
+     * Priority: hurt → attack/bow → fishing → swim → run/walk → idle.
+     */
+    resolveHeroAction(p, moving = false) {
+        const fish = p.fishingState;
+        if (p.hurtAnimTimer > 0) return 'hurt';
+        if (p.attackTimer > 0 || p.bowAnimTimer > 0) return 'attack';
+        if (fish) {
+            if (fish.state === 'casting') return 'casting';
+            if (fish.state === 'reeling') return 'reeling';
+            if (fish.state === 'caught') return 'caught';
+            if (fish.state === 'waiting' || fish.state === 'bite') return 'waiting';
+        }
+        if (p.onWater) return 'swimming';
+        if (moving) {
+            // Run when not slowed by shield / heavy claymore; otherwise walk.
+            if (p.shielding) return 'walk';
+            if (p.activeMeleeSlot === 'fire_claymore') return 'walk';
+            return 'run';
+        }
+        return 'idle';
+    }
+
+    heroFrameForAction(p, action, frames) {
+        const fish = p.fishingState;
+        if (action === 'hurt') {
+            const dur = p.hurtAnimDuration || 0.42;
+            const progress = 1 - Math.max(0, p.hurtAnimTimer) / dur;
+            return Math.min(frames - 1, Math.floor(progress * frames));
+        }
+        if (action === 'attack') {
+            const timer = p.attackTimer > 0 ? p.attackTimer : p.bowAnimTimer;
+            const dur = p.attackTimer > 0
+                ? (p.attackDuration || 0.26)
+                : (p.bowAnimDuration || 0.28);
+            const progress = 1 - Math.max(0, timer) / dur;
+            return Math.min(frames - 1, Math.floor(progress * frames));
+        }
+        if (fish && (action === 'casting' || action === 'reeling' || action === 'caught')) {
+            const dur = fish.animDuration || 0.55;
+            const progress = 1 - Math.max(0, fish.timer) / dur;
+            return Math.min(frames - 1, Math.max(0, Math.floor(progress * frames)));
+        }
+        const ms = ANIM_FRAME_MS[action] || 100;
+        return Math.floor(performance.now() / ms) % frames;
+    }
+
+    /**
+     * Composite Human base + hair (+ tools for fishing) for the hero.
      * Sprites face right; flipX for left. Up/down reuse the side view (pack has no cardinal sheets).
      * Applies tunicColor to body clothing and hatColor to hair (outfit dye support).
+     * Diver outfit stays procedural (no dedicated dive sheets).
      */
     drawHeroSprite(ctx, p, moving = false) {
         if (p.outfit === 'diver') return false;
-        const attacking = p.attackTimer > 0;
-        let baseKey;
-        let hairKey;
 
+        let action = this.resolveHeroAction(p, moving);
         const hairSuffix = p.gender === 'female' ? 'f' : 'm';
+        const pickKeys = (act) => ({
+            baseKey: `hero_${act}_base`,
+            hairKey: `hero_${act}_hair_${hairSuffix}`,
+            toolsKey: `hero_${act}_tools`,
+        });
 
-        if (attacking) {
-            // Body attack pose only — game weapons stay procedural (sword/bow/claymore).
-            baseKey = 'hero_attack_base';
-            hairKey = `hero_attack_hair_${hairSuffix}`;
-        } else if (moving) {
-            baseKey = 'hero_walk_base';
-            hairKey = `hero_walk_hair_${hairSuffix}`;
-        } else {
-            baseKey = 'hero_idle_base';
-            hairKey = `hero_idle_hair_${hairSuffix}`;
+        let keys = pickKeys(action);
+        // Fallback chain if a clip failed to load.
+        const fallbacks = ['idle', 'walk', 'run', 'attack'];
+        if (!this.has(keys.baseKey)) {
+            let found = null;
+            for (const fb of fallbacks) {
+                if (this.has(`hero_${fb}_base`)) {
+                    found = fb;
+                    break;
+                }
+            }
+            if (!found) return false;
+            action = found;
+            keys = pickKeys(action);
         }
 
-        if (!this.has(baseKey)) return false;
-
-        const frames = this.getMeta(baseKey)?.frames || 8;
-        let frame;
-        if (attacking) {
-            const progress = 1 - (p.attackTimer / (p.attackDuration || 0.26));
-            frame = Math.min(frames - 1, Math.floor(progress * frames));
-        } else if (moving) {
-            frame = Math.floor(performance.now() / 90) % frames;
-        } else {
-            frame = Math.floor(performance.now() / 140) % frames;
-        }
-
+        const frames = this.getMeta(keys.baseKey)?.frames || 8;
+        const frame = this.heroFrameForAction(p, action, frames);
         const flipX = p.dir === 'left';
         const tunic = p.tunicColor || '#16a34a';
         const hat = p.hatColor || '#15803d';
         const legs = p.legsColor || '#334155';
+        const drawOpts = { targetH: 48, maxW: 38, footPad: 16 };
 
-        this.drawCroppedStrip(ctx, baseKey, frame, 0, 0, flipX, {
+        this.drawCroppedStrip(ctx, keys.baseKey, frame, 0, 0, flipX, {
             bodyColor: tunic,
             legsColor: legs,
-            targetH: 48,
-            maxW: 38,
-            footPad: 16,
+            ...drawOpts,
         });
-        // Hair uses hatColor so Art Shop dye still shows on the sprite-backed hero.
-        this.drawCroppedStrip(ctx, hairKey, frame, 0, 0, flipX, {
+        this.drawCroppedStrip(ctx, keys.hairKey, frame, 0, 0, flipX, {
             hairColor: hat,
             mode: 'hair',
-            targetH: 48,
-            maxW: 38,
-            footPad: 16,
+            ...drawOpts,
         });
+        // Fishing poses include the rod on the tools layer when present.
+        if ((action === 'casting' || action === 'waiting' || action === 'reeling' || action === 'caught')
+            && this.has(keys.toolsKey)) {
+            this.drawCroppedStrip(ctx, keys.toolsKey, frame, 0, 0, flipX, drawOpts);
+        }
         return true;
     }
 
     /**
      * Goblin / Skeleton stand-in for blob / snake. Returns false → procedural fallback.
+     * Priority: death → hurt → attack → run/walk → idle.
      */
     drawEnemySprite(ctx, e) {
         const map = ENEMY_SPRITES[e.type];
         if (!map) return false;
-        const moving = !!e._spriteMoving;
-        const key = moving && this.has(map.walk) ? map.walk : map.idle;
+
+        let key = map.idle;
+        let frameMode = 'loop';
+        if (e.dying && map.death && this.has(map.death)) {
+            key = map.death;
+            frameMode = 'death';
+        } else if (e.hurtTimer > 0 && map.hurt && this.has(map.hurt)) {
+            key = map.hurt;
+            frameMode = 'hurt';
+        } else if (e.attackAnimTimer > 0 && map.attack && this.has(map.attack)) {
+            key = map.attack;
+            frameMode = 'attack';
+        } else if (e._spriteChasing && map.run && this.has(map.run)) {
+            key = map.run;
+        } else if (e._spriteMoving && map.walk && this.has(map.walk)) {
+            key = map.walk;
+        } else if (map.idle && this.has(map.idle)) {
+            key = map.idle;
+        }
+
         if (!this.has(key)) return false;
         const frames = this.getMeta(key)?.frames || 1;
-        const frame = Math.floor(e.animPhase || 0) % frames;
+        let frame;
+        if (frameMode === 'death') {
+            const dur = e.deathDuration || 0.55;
+            const progress = 1 - Math.max(0, e.deathTimer || 0) / dur;
+            frame = Math.min(frames - 1, Math.floor(progress * frames));
+        } else if (frameMode === 'hurt') {
+            const dur = e.hurtDuration || 0.4;
+            const progress = 1 - Math.max(0, e.hurtTimer) / dur;
+            frame = Math.min(frames - 1, Math.floor(progress * frames));
+        } else if (frameMode === 'attack') {
+            const dur = e.attackAnimDuration || 0.4;
+            const progress = 1 - Math.max(0, e.attackAnimTimer) / dur;
+            frame = Math.min(frames - 1, Math.floor(progress * frames));
+        } else {
+            frame = Math.floor(e.animPhase || 0) % frames;
+        }
         const flipX = Math.cos(e.dirAngle || 0) < 0;
         return this.drawCroppedStrip(ctx, key, frame, 0, 0, flipX, {
             targetH: e.type === 'snake' ? 36 : 40,

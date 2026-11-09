@@ -45,6 +45,9 @@ export const playerMethods = {
           bowAnimDuration: 0.28,
           attackCooldown: 0,
           invulnTimer: 0,
+          hurtAnimTimer: 0,
+          hurtAnimDuration: 0.42,
+          onWater: false,
           inBush: false,
           stealthHidden: false,
           stealthTimer: 3.0,
@@ -201,37 +204,57 @@ export const playerMethods = {
 
       sfx.splash();
       const waitDuration = 3.6 + Math.random() * 3.0; // Wait 3.6 to 6.6 seconds for a bite
+      // Casting pose first, then waiting — drives Sunnyside fishing strips.
       actor.fishingState = {
-          state: 'waiting',
-          timer: waitDuration,
+          state: 'casting',
+          timer: 0.55,
+          animDuration: 0.55,
+          waitDuration,
           bobberX: waterX,
           bobberY: waterY
       };
       this.showToast(`🎣 ${actor.id} cast a line! Waiting for a fish to bite...`);
   },
 
-  reelInFish(actor) {
+  /**
+   * Finish the catch after reeling/caught poses (or immediately if anims skipped).
+   */
+  finishFishCatch(actor, caught) {
       actor.fishingState = null;
-      sfx.splash();
-
-      // Weighted Rarity: Salmon (38%), Trout (38%), Silver Fish (12% RARE), Bull Eye (12% RARE)
-      const roll = Math.random();
-      let caught;
-      if (roll < 0.38) {
-          caught = { key: 'salmon', name: 'Salmon', price: 15, desc: 'A little red fish with an eye and a vibrant green splash on its side! Sells for $15.' };
-      } else if (roll < 0.76) {
-          caught = { key: 'trout', name: 'Trout', price: 15, variant: Math.random() < 0.5 ? 'brown' : 'green', desc: 'A fresh freshwater trout with one little eye! Sells for $15.' };
-      } else if (roll < 0.88) {
-          caught = { key: 'silver_fish', name: '🌟 Rare Silver Fish', price: 20, desc: 'RARE CATCH! A sleek little fish with a bright eye, covered in shimmering silver scales! Sells for $20.' };
-      } else {
-          caught = { key: 'bull_eye', name: '🌟 Rare Bull Eye', price: 20, desc: 'RARE CATCH! A brown fish with a little horn on its forehead and a giant bullseye eye! Sells for $20.' };
-      }
-
       this.pendingCaughtFish = caught;
       document.getElementById('fish-modal-name').textContent = `${caught.name} ($${caught.price} / ${caught.price} Coins)`;
       document.getElementById('fish-modal-desc').textContent = caught.desc;
       document.getElementById('fish-modal').classList.remove('hidden');
       this.renderCaughtFishPreview(caught);
+  },
+
+  rollCaughtFish() {
+      // Weighted Rarity: Salmon (38%), Trout (38%), Silver Fish (12% RARE), Bull Eye (12% RARE)
+      const roll = Math.random();
+      if (roll < 0.38) {
+          return { key: 'salmon', name: 'Salmon', price: 15, desc: 'A little red fish with an eye and a vibrant green splash on its side! Sells for $15.' };
+      }
+      if (roll < 0.76) {
+          return { key: 'trout', name: 'Trout', price: 15, variant: Math.random() < 0.5 ? 'brown' : 'green', desc: 'A fresh freshwater trout with one little eye! Sells for $15.' };
+      }
+      if (roll < 0.88) {
+          return { key: 'silver_fish', name: '🌟 Rare Silver Fish', price: 20, desc: 'RARE CATCH! A sleek little fish with a bright eye, covered in shimmering silver scales! Sells for $20.' };
+      }
+      return { key: 'bull_eye', name: '🌟 Rare Bull Eye', price: 20, desc: 'RARE CATCH! A brown fish with a little horn on its forehead and a giant bullseye eye! Sells for $20.' };
+  },
+
+  reelInFish(actor) {
+      sfx.splash();
+      const caught = this.rollCaughtFish();
+      // Play reeling → caught strips briefly before the keep/sell modal.
+      actor.fishingState = {
+          state: 'reeling',
+          timer: 0.5,
+          animDuration: 0.5,
+          bobberX: actor.fishingState?.bobberX ?? actor.x,
+          bobberY: actor.fishingState?.bobberY ?? actor.y,
+          pendingCatch: caught
+      };
   },
 
   swingSword(actor = this.player) {
@@ -339,6 +362,8 @@ export const playerMethods = {
           return;
       }
       actor.invulnTimer = 0.85;
+      actor.hurtAnimDuration = 0.42;
+      actor.hurtAnimTimer = actor.hurtAnimDuration;
       sfx.hurt();
 
       // Yellow temporary hearts absorb damage first and cannot be healed back up like normal red hearts
@@ -409,13 +434,15 @@ export const playerMethods = {
       if (actor.activeMeleeSlot === 'fire_claymore' && this.player.hasFireClaymore) {
           moveSpeed *= 0.72;
       }
-      if (currentTile === T_WATER) {
+      actor.onWater = currentTile === T_WATER;
+      if (actor.onWater) {
           moveSpeed *= (actor.outfit === 'diver') ? 1.38 : 0.78;
       }
       if (actor.shielding) moveSpeed *= 0.55;
 
       actor.moving = false;
       if (dx !== 0 || dy !== 0) {
+          // Cancel fishing if the player walks away mid-cast / wait.
           if (actor.fishingState) actor.fishingState = null;
           if (Math.abs(dx) >= Math.abs(dy)) actor.dir = dx > 0 ? 'right' : 'left';
           else actor.dir = dy > 0 ? 'down' : 'up';
@@ -431,15 +458,26 @@ export const playerMethods = {
       if (actor.bowAnimTimer > 0) actor.bowAnimTimer = Math.max(0, actor.bowAnimTimer - dt);
       if (actor.attackCooldown > 0) actor.attackCooldown = Math.max(0, actor.attackCooldown - dt);
       if (actor.invulnTimer > 0) actor.invulnTimer = Math.max(0, actor.invulnTimer - dt);
+      if (actor.hurtAnimTimer > 0) actor.hurtAnimTimer = Math.max(0, actor.hurtAnimTimer - dt);
 
       if (actor.fishingState) {
           actor.fishingState.timer -= dt;
-          if (actor.fishingState.state === 'waiting' && actor.fishingState.timer <= 0) {
-              actor.fishingState.state = 'bite';
-              actor.fishingState.timer = 2.8;
+          const fs = actor.fishingState;
+          if (fs.state === 'casting' && fs.timer <= 0) {
+              fs.state = 'waiting';
+              fs.timer = fs.waitDuration || 4.0;
+              fs.animDuration = undefined;
+          } else if (fs.state === 'waiting' && fs.timer <= 0) {
               sfx.splash();
-              this.addFloatingText(actor.fishingState.bobberX, actor.fishingState.bobberY - 12, "❗ BITE! REELING IN!", "#facc15");
+              this.addFloatingText(fs.bobberX, fs.bobberY - 12, "❗ BITE! REELING IN!", "#facc15");
               this.reelInFish(actor);
+          } else if (fs.state === 'reeling' && fs.timer <= 0) {
+              fs.state = 'caught';
+              fs.timer = 0.45;
+              fs.animDuration = 0.45;
+          } else if (fs.state === 'caught' && fs.timer <= 0) {
+              const caught = fs.pendingCatch || this.rollCaughtFish();
+              this.finishFishCatch(actor, caught);
           }
       }
 
