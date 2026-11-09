@@ -35,10 +35,22 @@
             </p>
 
             <div class="flex flex-col gap-3.5 w-64">
-                <button onclick="game.openPlayMenu(false)" id="btn-title-play" class="hd-btn py-3 text-lg tracking-wide">▶ PLAY (1P)</button>
-                <button onclick="game.openPlayMenu(true)" id="btn-title-multi" class="hd-btn py-3 text-lg tracking-wide" style="background: #0284c7; border-color: #bae6fd; color: #ffffff;">⚔️ MULTIPLAYER (2P)</button>
-                <button onclick="game.openSettingsModal()" id="btn-title-settings" class="hd-btn-secondary py-2.5 text-base">⚙️ SETTINGS</button>
-                <button onclick="game.leaveGame()" id="btn-title-leave" class="hd-btn-secondary py-2.5 text-base text-rose-300 border-rose-400/60">🚪 LEAVE GAME</button>
+                <button onclick="game.openPlayMenu(false)" id="btn-title-play" class="hd-btn py-3 text-lg tracking-wide inline-flex items-center justify-center gap-2">
+                    <img data-ui-icon="play" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span id="btn-title-play-label">▶ PLAY (1P)</span>
+                </button>
+                <button onclick="game.openPlayMenu(true)" id="btn-title-multi" class="hd-btn py-3 text-lg tracking-wide inline-flex items-center justify-center gap-2" style="background: #0284c7; border-color: #bae6fd; color: #ffffff;">
+                    <img data-ui-icon="multi" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span id="btn-title-multi-label">⚔️ MULTIPLAYER (2P)</span>
+                </button>
+                <button onclick="game.openSettingsModal()" id="btn-title-settings" class="hd-btn-secondary py-2.5 text-base inline-flex items-center justify-center gap-2">
+                    <img data-ui-icon="settings" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span id="btn-title-settings-label">⚙️ SETTINGS</span>
+                </button>
+                <button onclick="game.leaveGame()" id="btn-title-leave" class="hd-btn-secondary py-2.5 text-base text-rose-300 border-rose-400/60 inline-flex items-center justify-center gap-2">
+                    <img data-ui-icon="leave" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span id="btn-title-leave-label">🚪 LEAVE GAME</span>
+                </button>
             </div>
         </div>
 
@@ -112,7 +124,11 @@
                 <div class="flex items-center gap-1.5 mt-1 flex-wrap">
                     <span id="hud-level" class="px-2 py-0.5 bg-emerald-900/90 border border-emerald-400 rounded-md text-xs font-bold text-emerald-200">LVL 0</span>
                     <span id="hud-armor" class="px-2 py-0.5 bg-sky-900/90 border border-sky-400 rounded-md text-xs font-bold text-sky-200">ARMOR LVL 1</span>
-                    <span class="px-2 py-0.5 bg-amber-900/90 border border-amber-400 rounded-md text-xs font-bold text-amber-200">🪙 <span id="hud-coins">25</span></span>
+                    <span class="px-2 py-0.5 bg-amber-900/90 border border-amber-400 rounded-md text-xs font-bold text-amber-200 inline-flex items-center gap-1">
+                        <img data-ui-icon="coin" alt="" class="hidden w-3.5 h-3.5 image-pixelated" style="image-rendering:pixelated" />
+                        <span data-ui-emoji="coin">🪙</span>
+                        <span id="hud-coins">25</span>
+                    </span>
                     <span id="hud-zone" class="px-2 py-0.5 bg-purple-900/90 border border-purple-400 rounded-md text-xs font-bold text-purple-200">Starting Meadow</span>
                 </div>
             </div>
@@ -122,7 +138,10 @@
         <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <!-- Regular Sword Slot -->
             <button onclick="game.equipAndSwingMainSword(game.player)" id="slot-main-sword" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border-2 border-amber-500 px-2 py-1 transition" title="P1: Return/Enter | P2: CapsLock (Press [1] to select Regular Sword)">
-                <span id="sword-icon" class="text-lg">🗡️</span>
+                <span id="sword-icon" class="text-lg inline-flex items-center justify-center w-5 h-5">
+                    <img data-ui-icon="sword" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span data-ui-emoji="sword">🗡️</span>
+                </span>
                 <div class="leading-tight text-left">
                     <div id="sword-name" class="text-xs font-bold text-amber-300">Wooden Sword [1]</div>
                     <div id="sword-dmg-label" class="text-[11px] text-slate-300">5 DMG • Fast</div>
@@ -131,7 +150,10 @@
 
             <!-- Separate Fire Claymore Slot (Does NOT replace Iron Sword!) -->
             <button onclick="game.toggleEquipFireClaymore(game.player)" id="slot-fire-claymore" class="flex items-center gap-1.5 bg-slate-900 border-2 border-slate-700 opacity-55 px-2 py-1 transition" title="Press [2] or click to equip/unequip the Giant Fire Claymore (12 DMG, Slow, Huge Reach)">
-                <span class="text-lg">🔥</span>
+                <span class="text-lg inline-flex items-center justify-center w-5 h-5">
+                    <img data-ui-icon="claymore" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span data-ui-emoji="claymore">🔥</span>
+                </span>
                 <div class="leading-tight text-left">
                     <div class="text-xs font-bold text-orange-400">Fire Claymore [2]</div>
                     <div id="claymore-status-label" class="text-[11px] text-slate-400">Locked (Volcano)</div>
@@ -140,7 +162,10 @@
 
             <!-- Shield -->
             <div id="slot-shield" class="flex items-center gap-1.5 bg-slate-800 border-2 border-cyan-400 px-2 py-1">
-                <span class="text-lg">🛡️</span>
+                <span class="text-lg inline-flex items-center justify-center w-5 h-5">
+                    <img data-ui-icon="shield" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span data-ui-emoji="shield">🛡️</span>
+                </span>
                 <div class="leading-tight">
                     <div class="text-xs font-bold text-cyan-300">Shield</div>
                     <div class="text-[11px] text-slate-300">Hold [SHIFT]</div>
@@ -149,7 +174,10 @@
 
             <!-- Bow (Upgradeable to Triple-Shot Ice Bow) -->
             <button id="slot-bow" onclick="game.shootArrow(game.player)" class="flex items-center gap-1.5 bg-slate-800 border-2 border-slate-600 opacity-60 px-2 py-1 transition" title="P1: Press P | P2: Press E">
-                <span class="text-lg" id="bow-icon">🏹</span>
+                <span class="text-lg inline-flex items-center justify-center w-5 h-5" id="bow-icon">
+                    <img data-ui-icon="bow" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span data-ui-emoji="bow">🏹</span>
+                </span>
                 <div class="leading-tight text-left">
                     <div class="text-xs font-bold text-emerald-300"><span id="ui-hud-bow">Bow</span>: <span id="hud-arrows">0</span></div>
                     <div id="bow-status" class="text-[11px] text-slate-400">P1:[P] P2:[E]</div>
@@ -158,7 +186,10 @@
 
             <!-- Wave Launcher Slot (Unlocked from Abyssal Water Boss) -->
             <button id="slot-wave-launcher" onclick="game.fireWaveLauncher(game.player)" class="flex items-center gap-1.5 bg-slate-900 border-2 border-slate-700 opacity-55 px-2 py-1 transition" title="Press [V] to summon a Crashing Wave">
-                <span class="text-lg">🌊</span>
+                <span class="text-lg inline-flex items-center justify-center w-5 h-5">
+                    <img data-ui-icon="wave" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span data-ui-emoji="wave">🌊</span>
+                </span>
                 <div class="leading-tight text-left">
                     <div class="text-xs font-bold text-sky-300">Wave Launcher</div>
                     <div id="wave-launcher-label" class="text-[11px] text-slate-400">Locked [V]</div>
@@ -167,7 +198,10 @@
 
             <!-- Fishing Rod -->
             <button onclick="game.castFishingRod(game.player)" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border-2 border-sky-400 px-2 py-1 transition" title="Press C near water to Fish">
-                <span class="text-lg">🎣</span>
+                <span class="text-lg inline-flex items-center justify-center w-5 h-5">
+                    <img data-ui-icon="rod" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span data-ui-emoji="rod">🎣</span>
+                </span>
                 <div class="leading-tight text-left">
                     <div class="text-xs font-bold text-sky-300" id="ui-hud-fish">Fish Rod</div>
                     <div class="text-[11px] text-slate-300">[C] Wait & Reel</div>
@@ -176,7 +210,10 @@
 
             <!-- Pork -->
             <button onclick="game.eatPork(game.player)" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border-2 border-rose-500 px-2 py-1 transition">
-                <span class="text-lg">🥩</span>
+                <span class="text-lg inline-flex items-center justify-center w-5 h-5">
+                    <img data-ui-icon="pork" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span data-ui-emoji="pork">🥩</span>
+                </span>
                 <div class="leading-tight text-left">
                     <div class="text-xs font-bold text-rose-300"><span id="ui-hud-pork">Pork</span>: <span id="hud-pork">10</span></div>
                     <div class="text-[11px] text-slate-300">P1:[9/L] P2:[2]</div>
@@ -185,7 +222,10 @@
 
             <!-- Golden Apple -->
             <button onclick="game.eatGoldenApple(game.player)" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border-2 border-yellow-400 px-2 py-1 transition">
-                <span class="text-lg">🍎</span>
+                <span class="text-lg inline-flex items-center justify-center w-5 h-5">
+                    <img data-ui-icon="gapple" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                    <span data-ui-emoji="gapple">🍎</span>
+                </span>
                 <div class="leading-tight text-left">
                     <div class="text-xs font-bold text-yellow-300">G.Apple: <span id="hud-gapples">0</span></div>
                     <div class="text-[11px] text-slate-300">P1:[0] P2:[3]</div>
@@ -195,12 +235,34 @@
 
         <!-- Right: Inventory [I], Quest Log [J], Map [M], Settings -->
         <div class="flex items-center gap-1.5">
-            <button onclick="game.toggleInventoryModal()" class="hd-btn px-2.5 py-1 text-xs" title="Shortcut: I">🎒 <span id="ui-btn-inv">INV [I]</span></button>
-            <button onclick="game.toggleQuestModal()" class="hd-btn px-2.5 py-1 text-xs" title="Shortcut: J">📖 <span id="ui-btn-quests">QUESTS [J]</span></button>
-            <button onclick="game.toggleWorldMapModal()" class="hd-btn px-2.5 py-1 text-xs" title="Shortcut: M">🚩 <span id="ui-btn-map">MAP [M]</span></button>
-            <button onclick="game.manualSave()" class="hd-btn px-2.5 py-1 text-xs" title="Manually save your progress to this browser">💾 SAVE</button>
-            <button onclick="game.openSettingsModal()" class="hd-btn-secondary px-2.5 py-1 text-xs">⚙️</button>
-            <button onclick="game.returnToTitleScreen()" class="hd-btn-secondary px-2.5 py-1 text-xs text-amber-300">🏠</button>
+            <button onclick="game.toggleInventoryModal()" class="hd-btn px-2.5 py-1 text-xs inline-flex items-center gap-1" title="Shortcut: I">
+                <img data-ui-icon="inv" alt="" class="hidden w-3.5 h-3.5 image-pixelated" style="image-rendering:pixelated" />
+                <span data-ui-emoji="inv">🎒</span>
+                <span id="ui-btn-inv">INV [I]</span>
+            </button>
+            <button onclick="game.toggleQuestModal()" class="hd-btn px-2.5 py-1 text-xs inline-flex items-center gap-1" title="Shortcut: J">
+                <img data-ui-icon="quests" alt="" class="hidden w-3.5 h-3.5 image-pixelated" style="image-rendering:pixelated" />
+                <span data-ui-emoji="quests">📖</span>
+                <span id="ui-btn-quests">QUESTS [J]</span>
+            </button>
+            <button onclick="game.toggleWorldMapModal()" class="hd-btn px-2.5 py-1 text-xs inline-flex items-center gap-1" title="Shortcut: M">
+                <img data-ui-icon="map" alt="" class="hidden w-3.5 h-3.5 image-pixelated" style="image-rendering:pixelated" />
+                <span data-ui-emoji="map">🚩</span>
+                <span id="ui-btn-map">MAP [M]</span>
+            </button>
+            <button onclick="game.manualSave()" class="hd-btn px-2.5 py-1 text-xs inline-flex items-center gap-1" title="Manually save your progress to this browser">
+                <img data-ui-icon="save" alt="" class="hidden w-3.5 h-3.5 image-pixelated" style="image-rendering:pixelated" />
+                <span data-ui-emoji="save">💾</span>
+                SAVE
+            </button>
+            <button onclick="game.openSettingsModal()" class="hd-btn-secondary px-2.5 py-1 text-xs inline-flex items-center gap-1">
+                <img data-ui-icon="settings" alt="" class="hidden w-3.5 h-3.5 image-pixelated" style="image-rendering:pixelated" />
+                <span data-ui-emoji="settings">⚙️</span>
+            </button>
+            <button onclick="game.returnToTitleScreen()" class="hd-btn-secondary px-2.5 py-1 text-xs text-amber-300 inline-flex items-center gap-1">
+                <img data-ui-icon="home" alt="" class="hidden w-3.5 h-3.5 image-pixelated" style="image-rendering:pixelated" />
+                <span data-ui-emoji="home">🏠</span>
+            </button>
         </div>
     </header>
 
@@ -541,11 +603,17 @@
                 </div>
                 <div class="space-y-4">
                     <div class="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-700">
-                        <span class="text-sm font-bold" id="ui-lbl-bgm">🎵 Background Music</span>
+                        <span class="text-sm font-bold inline-flex items-center gap-2" id="ui-lbl-bgm">
+                            <img id="icon-setting-bgm" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                            <span id="ui-lbl-bgm-text">🎵 Background Music</span>
+                        </span>
                         <button onclick="game.toggleBGM()" id="btn-setting-bgm" class="hd-btn px-4 py-1.5 text-xs">ON</button>
                     </div>
                     <div class="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-700">
-                        <span class="text-sm font-bold" id="ui-lbl-sfx">🔊 Sound Effects</span>
+                        <span class="text-sm font-bold inline-flex items-center gap-2" id="ui-lbl-sfx">
+                            <img id="icon-setting-sfx" alt="" class="hidden w-5 h-5 image-pixelated" style="image-rendering:pixelated" />
+                            <span id="ui-lbl-sfx-text">🔊 Sound Effects</span>
+                        </span>
                         <button onclick="game.toggleSFX()" id="btn-setting-sfx" class="hd-btn px-4 py-1.5 text-xs">ON</button>
                     </div>
                     <div class="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-700">

@@ -540,9 +540,11 @@ async function boot() {
     const result = await assets.loadAll(CURATED_ASSETS, (frac, done, total, key) => {
         setBootProgress(frac, `Loading ${key || 'assets'} (${done}/${total})`);
     });
+    setBootProgress(0.92, 'Loading CC0 sound samples…');
+    await sfx.preloadSamples();
     setBootProgress(1, result.failed
-        ? `Ready — ${result.ok} sprites loaded (${result.failed} missing, procedural fallback)`
-        : `Ready — ${result.ok} sprites loaded`);
+        ? `Ready — ${result.ok} sprites, ${sfx.buffers.size} sounds (${result.failed} art missing)`
+        : `Ready — ${result.ok} sprites, ${sfx.buffers.size} sounds`);
     game = new Game();
     window.game = game; // inline HTML onclick handlers (title menu, etc.)
     if (typeof game.refreshSpriteUI === 'function') game.refreshSpriteUI();
