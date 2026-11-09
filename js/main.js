@@ -302,6 +302,9 @@ class Game {
 
         const activeHeroes = this.isMultiplayer ? [this.player, this.player2] : [this.player];
 
+        // Farm crop growth stages (wheat / carrot / pumpkin / sunflower)
+        if (typeof this.updateCrops === 'function') this.updateCrops(dt);
+
         // Dynamic BGM Theme switching
         const tx1 = Math.floor(this.player.x / TILE);
         const ty1 = Math.floor(this.player.y / TILE);

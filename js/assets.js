@@ -192,15 +192,85 @@ export const CURATED_ASSETS = [
     { key: 'coracle_water', url: `${ASSET_ROOT}/Elements/Other/spr_deco_coracle_strip4.png`, frames: 4 },
     { key: 'rock_deco', url: `${ASSET_ROOT}/Elements/Crops/rock.png` },
 
+    // Crops (stage 00 sprout → 05 mature) + soil / crate props
+    ...['wheat', 'carrot', 'pumpkin', 'sunflower'].flatMap((crop) =>
+        [0, 1, 2, 3, 4, 5].map((stage) => ({
+            key: `crop_${crop}_${stage}`,
+            url: `${ASSET_ROOT}/Elements/Crops/${crop}_0${stage}.png`,
+        }))
+    ),
+    { key: 'soil_00', url: `${ASSET_ROOT}/Elements/Crops/soil_00.png` },
+    { key: 'soil_01', url: `${ASSET_ROOT}/Elements/Crops/soil_01.png` },
+    { key: 'crate_base', url: `${ASSET_ROOT}/Elements/Crops/crate_base.png` },
+    { key: 'crate_top', url: `${ASSET_ROOT}/Elements/Crops/crate_top.png` },
+    { key: 'item_fish', url: `${ASSET_ROOT}/Elements/Crops/fish.png` },
+    { key: 'item_egg', url: `${ASSET_ROOT}/Elements/Crops/egg.png` },
+    { key: 'item_milk', url: `${ASSET_ROOT}/Elements/Crops/milk.png` },
+    { key: 'item_wood', url: `${ASSET_ROOT}/Elements/Crops/wood.png` },
+    { key: 'item_rock', url: `${ASSET_ROOT}/Elements/Crops/rock.png` },
+    { key: 'item_seeds', url: `${ASSET_ROOT}/Elements/Crops/seeds_generic.png` },
+
+    // Village / port props (pack has windmill + boat; house shells stay procedural)
+    { key: 'prop_windmill', url: `${ASSET_ROOT}/Elements/Other/spr_deco_windmill_strip9.png`, frames: 9 },
+    { key: 'prop_coracle', url: `${ASSET_ROOT}/Elements/Other/spr_deco_coracle_strip4.png`, frames: 4 },
+    { key: 'prop_coracle_land', url: `${ASSET_ROOT}/Elements/Other/spr_deco_coracle_land.png` },
+    { key: 'vfx_chimney', url: `${ASSET_ROOT}/Elements/VFX/Chimney Smoke/chimneysmoke_01_strip30.png`, frames: 30 },
+    { key: 'vfx_glint', url: `${ASSET_ROOT}/Elements/VFX/Glint/spr_deco_glint_01_strip6.png`, frames: 6 },
+    { key: 'vfx_glint_b', url: `${ASSET_ROOT}/Elements/VFX/Glint/spr_deco_glint_02_strip4.png`, frames: 4 },
+
     // UI icons
     { key: 'ui_sword', url: `${ASSET_ROOT}/UI/sword.png` },
     { key: 'ui_confirm', url: `${ASSET_ROOT}/UI/confirm.png` },
     { key: 'ui_cancel', url: `${ASSET_ROOT}/UI/cancel.png` },
     { key: 'ui_axe', url: `${ASSET_ROOT}/UI/axe.png` },
     { key: 'ui_hammer', url: `${ASSET_ROOT}/UI/hammer.png` },
+    { key: 'ui_rod', url: `${ASSET_ROOT}/UI/rod.png` },
+    { key: 'ui_rod_alt', url: `${ASSET_ROOT}/UI/rod alt.png` },
+    { key: 'ui_plant', url: `${ASSET_ROOT}/UI/plant.png` },
+    { key: 'ui_water', url: `${ASSET_ROOT}/UI/water.png` },
+    { key: 'ui_basket', url: `${ASSET_ROOT}/UI/basket.png` },
+    { key: 'ui_alert', url: `${ASSET_ROOT}/UI/expression_alerted.png` },
+    { key: 'ui_itemdisc', url: `${ASSET_ROOT}/UI/itemdisc_01.png` },
     { key: 'ui_redbar_full', url: `${ASSET_ROOT}/UI/redbar_06.png` },
     { key: 'ui_redbar_empty', url: `${ASSET_ROOT}/UI/redbar_00.png` },
 ];
+
+/** Crop kind → stage key prefix. Stages 0..5 match pack *_0N.png. */
+export const CROP_SPRITES = {
+    wheat: 'crop_wheat',
+    carrot: 'crop_carrot',
+    pumpkin: 'crop_pumpkin',
+    sunflower: 'crop_sunflower',
+};
+
+/** Seconds per growth stage for farm plots (visual loop; harvest only at stage 5). */
+export const CROP_STAGE_SECONDS = 2.4;
+
+/** World prop aliases for village / dock scenery. */
+export const PROP_SPRITES = {
+    windmill: 'prop_windmill',
+    coracle: 'prop_coracle',
+    coracleLand: 'prop_coracle_land',
+    chimney: 'vfx_chimney',
+    glint: 'vfx_glint',
+    crate: 'crate_base',
+    crateTop: 'crate_top',
+};
+
+/** Inventory / loot / catch icon keys. */
+export const ITEM_ICONS = {
+    fish: 'item_fish',
+    egg: 'item_egg',
+    milk: 'item_milk',
+    wood: 'item_wood',
+    rock: 'item_rock',
+    seeds: 'item_seeds',
+    pork: 'item_egg', // pack has no pork chop — egg stands in for food loot
+    rod: 'ui_rod',
+    plant: 'ui_plant',
+    water: 'ui_water',
+    basket: 'ui_basket',
+};
 
 /**
  * 16px tileset atlas cells (col, row) for key terrain + deco.
@@ -975,6 +1045,103 @@ export class AssetLoader {
             this.drawStrip(ctx, key, frame, dx, dy, dw, dh, flipX, crop);
         }
         return true;
+    }
+
+    /**
+     * Draw a crop growth stage (0..5) anchored at tile top-left.
+     * Draws soil underneath when available. Returns false → caller fillRect.
+     */
+    drawCropStage(ctx, cropKind, stage, tileX, tileY, tileSize = 44) {
+        const prefix = CROP_SPRITES[cropKind];
+        if (!prefix) return false;
+        const s = Math.max(0, Math.min(5, stage | 0));
+        const soilKey = s <= 1 ? 'soil_00' : 'soil_01';
+        if (this.has(soilKey)) {
+            this.drawImage(ctx, soilKey, tileX + 4, tileY + tileSize - 18, tileSize - 8, 16);
+        }
+        const key = `${prefix}_${s}`;
+        if (!this.has(key)) return false;
+        const img = this.getImage(key);
+        if (!img) return false;
+        // Pack frames are tiny (6–16px); upscale modestly so a crop fits ~½–¾ of a tile.
+        const targetH = Math.min(tileSize - 10, 12 + s * 4);
+        const scale = targetH / Math.max(img.height, 1);
+        let dw = Math.max(8, Math.round(img.width * scale));
+        let dh = Math.max(8, Math.round(img.height * scale));
+        dw = Math.min(dw, tileSize - 6);
+        dh = Math.min(dh, tileSize - 8);
+        const dx = tileX + (tileSize - dw) / 2;
+        const dy = tileY + tileSize - dh - 4;
+        this.drawImage(ctx, key, dx, dy, dw, dh);
+        return true;
+    }
+
+    /** Animated windmill (village farm landmark). */
+    drawWindmill(ctx, x, y, scale = 1) {
+        if (!this.has('prop_windmill')) return false;
+        const meta = this.getMeta('prop_windmill');
+        const frame = Math.floor(performance.now() / 120) % (meta?.frames || 9);
+        const dw = Math.round(96 * scale);
+        const dh = Math.round(112 * scale);
+        return this.drawStrip(ctx, 'prop_windmill', frame, x - dw / 2, y - dh + 8, dw, dh);
+    }
+
+    /** Bobbing coracle on water (dock / lake). */
+    drawCoracle(ctx, x, y, onLand = false) {
+        if (onLand) {
+            if (!this.has('prop_coracle_land')) return false;
+            return this.drawImage(ctx, 'prop_coracle_land', x - 24, y - 20, 48, 40);
+        }
+        if (!this.has('prop_coracle')) return false;
+        const meta = this.getMeta('prop_coracle');
+        const frame = Math.floor(performance.now() / 220) % (meta?.frames || 4);
+        const bob = Math.sin(performance.now() / 400) * 2;
+        return this.drawStrip(ctx, 'prop_coracle', frame, x - 28, y - 18 + bob, 56, 36);
+    }
+
+    /** Market / farm crate stack. */
+    drawCrate(ctx, x, y, withLid = true) {
+        let ok = false;
+        if (this.has('crate_base')) {
+            ok = this.drawImage(ctx, 'crate_base', x - 14, y - 10, 28, 28) || ok;
+        }
+        if (withLid && this.has('crate_top')) {
+            ok = this.drawImage(ctx, 'crate_top', x - 14, y - 22, 28, 24) || ok;
+        }
+        return ok;
+    }
+
+    /** Chimney smoke strip above a building roof point. */
+    drawChimneySmoke(ctx, x, y) {
+        if (!this.has('vfx_chimney')) return false;
+        const meta = this.getMeta('vfx_chimney');
+        const frame = Math.floor(performance.now() / 80) % (meta?.frames || 30);
+        return this.drawStrip(ctx, 'vfx_chimney', frame, x - 8, y - 28, 30, 28);
+    }
+
+    /** Bite / sparkle glint (fishing bobber, shiny loot). */
+    drawGlint(ctx, x, y, variant = 0) {
+        const key = variant ? 'vfx_glint_b' : 'vfx_glint';
+        if (!this.has(key)) return false;
+        const meta = this.getMeta(key);
+        const frame = Math.floor(performance.now() / 90) % (meta?.frames || 4);
+        return this.drawStrip(ctx, key, frame, x - 8, y - 8, 16, 14);
+    }
+
+    /**
+     * Draw a small item / pickup icon centered at (x,y).
+     * `kind` maps through ITEM_ICONS (fish, egg, pork, wood, …).
+     */
+    drawItemIcon(ctx, kind, x, y, size = 22) {
+        const key = ITEM_ICONS[kind] || kind;
+        if (!this.has(key)) return false;
+        return this.drawImage(ctx, key, x - size / 2, y - size / 2, size, size);
+    }
+
+    /** UI tool icon (rod, plant, water, basket, sword…). */
+    drawUiIcon(ctx, key, x, y, size = 20) {
+        if (!this.has(key)) return false;
+        return this.drawImage(ctx, key, x, y, size, size);
     }
 }
 

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sunnyside content demo — crops / buildings / fishing</title>
+  <style>
+    body { margin: 0; background: #0f172a; color: #f8fafc; font-family: ui-monospace, monospace; }
+    h1 { font-size: 14px; margin: 12px 16px; }
+    #panels { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; }
+    .panel { background: #1e293b; border: 2px solid #64748b; padding: 10px; }
+    .panel h2 { margin: 0 0 8px; font-size: 13px; color: #fde68a; }
+    canvas { image-rendering: pixelated; display: block; background: #14532d; }
+    #status { margin: 0 16px 8px; font-size: 12px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <h1>Sword Fighter 2 — content sprites demo</h1>
+  <p id="status">Loading…</p>
+  <div id="panels">
+    <div class="panel">
+      <h2>Crops (growth stages)</h2>
+      <canvas id="crops" width="480" height="220"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Buildings / props</h2>
+      <canvas id="buildings" width="480" height="220"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Fishing feedback</h2>
+      <canvas id="fishing" width="480" height="220"></canvas>
+    </div>
+  </div>
+  <script type="module">
+    import { assets, CURATED_ASSETS } from '../js/assets.js';
+
+    const result = await assets.loadAll(CURATED_ASSETS);
+    document.getElementById('status').textContent =
+      `Loaded ${result.ok}/${result.total} curated assets (failed ${result.failed}). Crops/props use procedural fallbacks if missing.`;
+
+    function drawCrops() {
+      const c = document.getElementById('crops');
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = '#166534';
+      ctx.fillRect(0, 0, c.width, c.height);
+      const kinds = ['wheat', 'carrot', 'pumpkin', 'sunflower'];
+      kinds.forEach((kind, row) => {
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '12px monospace';
+        ctx.fillText(kind, 8, 28 + row * 48);
+        for (let stage = 0; stage <= 5; stage++) {
+          const x = 90 + stage * 60;
+          const y = 8 + row * 48;
+          ctx.fillStyle = '#3f6212';
+          ctx.fillRect(x, y + 28, 44, 14);
+          if (!assets.drawCropStage(ctx, kind, stage, x, y, 44)) {
+            ctx.fillStyle = '#facc15';
+            ctx.fillRect(x + 16, y + 10, 8, 8 + stage * 2);
+          }
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '10px monospace';
+          ctx.fillText(String(stage), x + 18, y + 12);
+        }
+      });
+    }
+
+    function drawBuildings() {
+      const c = document.getElementById('buildings');
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      // Sky + grass
+      const g = ctx.createLinearGradient(0, 0, 0, c.height);
+      g.addColorStop(0, '#38bdf8');
+      g.addColorStop(0.55, '#7dd3fc');
+      g.addColorStop(0.55, '#16a34a');
+      g.addColorStop(1, '#14532d');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, c.width, c.height);
+
+      // Procedural house shell (same idea as in-game) + chimney smoke
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(40, 70, 120, 40);
+      ctx.fillStyle = '#fef3c7';
+      ctx.fillRect(50, 110, 100, 50);
+      ctx.fillStyle = '#7f1d1d';
+      ctx.fillRect(130, 55, 16, 22);
+      assets.drawChimneySmoke(ctx, 138, 55);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText('FARMHOUSE', 62, 95);
+
+      assets.drawWindmill(ctx, 260, 175, 0.9);
+      assets.drawCrate(ctx, 360, 160, true);
+      assets.drawCrate(ctx, 400, 168, false);
+      assets.drawCoracle(ctx, 420, 90, false);
+      assets.drawCoracle(ctx, 70, 180, true);
+      assets.drawItemIcon(ctx, 'fish', 370, 140, 18);
+      assets.drawUiIcon(ctx, 'ui_basket', 400, 138, 18);
+    }
+
+    function drawFishing() {
+      const c = document.getElementById('fishing');
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = '#0c4a6e';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.fillStyle = '#0369a1';
+      for (let i = 0; i < 8; i++) ctx.fillRect(0, 40 + i * 22, c.width, 8);
+
+      const states = [
+        { label: 'cast/wait', state: 'waiting', x: 80 },
+        { label: 'BITE!', state: 'bite', x: 200 },
+        { label: 'reeling', state: 'reeling', x: 320 },
+        { label: 'caught', state: 'caught', x: 420 },
+      ];
+
+      for (const s of states) {
+        const x = s.x;
+        const y = 120;
+        // Hero silhouette + fishing strip when available
+        ctx.save();
+        ctx.translate(x, y);
+        const action = s.state === 'bite' ? 'waiting' : s.state === 'waiting' ? 'waiting' : s.state;
+        const baseKey = `hero_${action === 'bite' ? 'waiting' : action}_base`;
+        const hairKey = `hero_${action === 'bite' ? 'waiting' : action}_hair_m`;
+        const toolsKey = `hero_${action === 'bite' ? 'waiting' : action}_tools`;
+        const useAction = assets.has(baseKey) ? (action === 'bite' ? 'waiting' : action) : 'idle';
+        const bk = `hero_${useAction}_base`;
+        const hk = `hero_${useAction}_hair_m`;
+        const tk = `hero_${useAction}_tools`;
+        const frames = assets.getMeta(bk)?.frames || 1;
+        const frame = Math.floor(performance.now() / 90) % frames;
+        if (assets.has(bk)) {
+          assets.drawCroppedStrip(ctx, bk, frame, 0, 0, false, {
+            bodyColor: '#0284c7', legsColor: '#334155', targetH: 48, maxW: 38, footPad: 16,
+          });
+          assets.drawCroppedStrip(ctx, hk, frame, 0, 0, false, {
+            hairColor: '#78350f', mode: 'hair', targetH: 48, maxW: 38, footPad: 16,
+          });
+          if (assets.has(tk) && ['casting', 'waiting', 'reeling', 'caught'].includes(useAction)) {
+            assets.drawCroppedStrip(ctx, tk, frame, 0, 0, false, { targetH: 48, maxW: 38, footPad: 16 });
+          }
+        } else {
+          ctx.fillStyle = '#0284c7';
+          ctx.fillRect(-10, -20, 20, 28);
+        }
+
+        // Line + bobber
+        const bx = 36, by = 28;
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.beginPath();
+        ctx.moveTo(8, -6);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+        ctx.fillStyle = s.state === 'bite' ? '#facc15' : '#ef4444';
+        ctx.fillRect(bx - 5, by - 5, 10, 10);
+        if (s.state === 'bite') {
+          assets.drawGlint(ctx, bx, by - 14, 0);
+          assets.drawUiIcon(ctx, 'ui_alert', bx - 4, by - 28, 12);
+        }
+        if (s.state === 'caught' || s.state === 'reeling') {
+          assets.drawItemIcon(ctx, 'fish', bx, by - 18, 18);
+          assets.drawGlint(ctx, bx + 8, by - 24, 1);
+        }
+        if (s.state === 'waiting') assets.drawUiIcon(ctx, 'ui_rod', 10, -28, 16);
+        ctx.restore();
+
+        ctx.fillStyle = '#fde68a';
+        ctx.font = '12px monospace';
+        ctx.fillText(s.label, x - 20, 200);
+      }
+
+      // Catch preview disc
+      if (assets.has('ui_itemdisc')) assets.drawImage(ctx, 'ui_itemdisc', 20, 20, 48, 48);
+      assets.drawItemIcon(ctx, 'fish', 44, 44, 28);
+    }
+
+    function tick() {
+      drawCrops();
+      drawBuildings();
+      drawFishing();
+      requestAnimationFrame(tick);
+    }
+    tick();
+
+    // Expose canvases for screenshot tooling
+    window.__contentDemoReady = true;
+  </script>
+</body>
+</html>

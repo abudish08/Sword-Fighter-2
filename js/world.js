@@ -2,7 +2,7 @@
  * World constants, procedural generation, tile queries, and world rendering.
  */
 
-import { sfx, assets } from './assets.js';
+import { sfx, assets, CROP_STAGE_SECONDS } from './assets.js';
 
 /**
  * WORLD & TILE CONSTANTS (500,000 x 500,000 BOUNDED BLOCK WORLD — ZERO CURVES)
@@ -176,6 +176,7 @@ export const worldMethods = {
       this.flowers = [];
       this.flags = [];
       this.buildings = [];
+      this.worldProps = []; // windmill / boats / crates (sprite-backed scenery)
       this.interactables = [];
       this.enemies = [];
       this.fireTurrets = [];
@@ -220,6 +221,11 @@ export const worldMethods = {
       // 2. CRYSTAL FISHING LAKE (x: 105..122, y: 66..80)
       fillRect(105, 66, 122, 80, T_WATER);
       fillRect(112, 63, 114, 69, T_WOOD_FLOOR);
+      this.worldProps.push(
+          { kind: 'coracle', x: 110 * TILE + 8, y: 68 * TILE + 6, onLand: false },
+          { kind: 'coracle', x: 118 * TILE + 4, y: 74 * TILE + 10, onLand: false },
+          { kind: 'crate', x: 112 * TILE + 18, y: 64 * TILE + 8, lid: true }
+      );
 
       // 3. OAKVALE VILLAGE (x: 53..79, y: 48..74)
       fillRect(61, 56, 71, 65, T_PATH);
@@ -269,14 +275,28 @@ export const worldMethods = {
           { id: 'npc_guard', x: 71 * TILE, y: 60 * TILE, name: 'Captain Rowan', role: 'Town Guard', coatColor: '#7c3aed', hairColor: '#94a3b8', questKey: 'monster', onTalk: () => this.handleNpcQuestDialog('monster', 'Captain Rowan', 30, 6, 2) }
       );
 
-      // Wheat & Fences in Oakvale
+      // Wheat & Fences in Oakvale — stages 0..5 from Sunnyside crop pack; harvest only when mature.
       const wheatCoords = [[73, 72], [75, 72], [77, 72], [79, 72], [73, 74], [75, 74], [77, 74], [79, 74]];
       wheatCoords.forEach(([wx, wy], idx) => {
           this.interactables.push({
-              id: `wheat_${idx}`, x: wx * TILE, y: wy * TILE, type: 'wheat', harvested: false, label: 'Harvest Golden Wheat',
+              id: `wheat_${idx}`,
+              x: wx * TILE,
+              y: wy * TILE,
+              type: 'wheat',
+              cropKind: 'wheat',
+              // Stagger so the field shows mixed growth stages on first visit.
+              stage: Math.min(5, 2 + (idx % 4)),
+              growthTimer: CROP_STAGE_SECONDS * (0.35 + (idx % 3) * 0.2),
+              harvested: false,
+              label: 'Harvest Golden Wheat',
               onInteract: (obj) => {
-                  if (obj.harvested) return;
+                  if (obj.harvested || (obj.stage ?? 5) < 5) {
+                      this.showToast('🌱 Wheat is still growing — wait until the heads turn golden!');
+                      return;
+                  }
                   obj.harvested = true;
+                  obj.stage = 0;
+                  obj.growthTimer = CROP_STAGE_SECONDS;
                   this.quests.farming.current++;
                   sfx.heal();
                   this.addFloatingText(obj.x, obj.y, "+1 Wheat", "#facc15");
@@ -285,6 +305,51 @@ export const worldMethods = {
               }
           });
       });
+
+      // Extra farm plots (carrot / pumpkin / sunflower) — same harvest loop, flavor pickups.
+      const extraCrops = [
+          { id: 'carrot_0', kind: 'carrot', x: 71, y: 72, label: 'Harvest Carrot' },
+          { id: 'carrot_1', kind: 'carrot', x: 71, y: 74, label: 'Harvest Carrot' },
+          { id: 'pumpkin_0', kind: 'pumpkin', x: 81, y: 72, label: 'Harvest Pumpkin' },
+          { id: 'pumpkin_1', kind: 'pumpkin', x: 81, y: 74, label: 'Harvest Pumpkin' },
+          { id: 'sunflower_0', kind: 'sunflower', x: 75, y: 76, label: 'Harvest Sunflower' },
+          { id: 'sunflower_1', kind: 'sunflower', x: 77, y: 76, label: 'Harvest Sunflower' },
+      ];
+      extraCrops.forEach((c, idx) => {
+          this.interactables.push({
+              id: c.id,
+              x: c.x * TILE,
+              y: c.y * TILE,
+              type: 'crop',
+              cropKind: c.kind,
+              stage: Math.min(5, 3 + (idx % 3)),
+              growthTimer: CROP_STAGE_SECONDS,
+              harvested: false,
+              label: c.label,
+              onInteract: (obj) => {
+                  if (obj.harvested || (obj.stage ?? 5) < 5) {
+                      this.showToast('🌱 Still growing — come back when the crop is fully mature!');
+                      return;
+                  }
+                  obj.harvested = true;
+                  obj.stage = 0;
+                  obj.growthTimer = CROP_STAGE_SECONDS;
+                  this.player.pork += 1;
+                  sfx.coin();
+                  this.addFloatingText(obj.x, obj.y, `+1 ${c.kind}`, "#86efac");
+                  this.showToast(`🧺 Picked a ${c.kind}! (+1 Pork snack)`);
+                  this.updateHUD();
+              }
+          });
+      });
+
+      // Village scenery props (sprite-backed; houses stay procedural shells)
+      this.worldProps.push(
+          { kind: 'windmill', x: 82 * TILE + 22, y: 66 * TILE + 10, scale: 0.85 },
+          { kind: 'crate', x: 55 * TILE + 22, y: 66 * TILE + 8, lid: true },
+          { kind: 'crate', x: 58 * TILE + 8, y: 67 * TILE + 4, lid: false },
+          { kind: 'crate', x: 74 * TILE + 10, y: 71 * TILE + 6, lid: true }
+      );
 
       const fenceCoords = [[52, 52], [52, 70], [80, 52], [80, 70], [61, 73]];
       fenceCoords.forEach(([fx, fy], idx) => {
@@ -541,6 +606,45 @@ export const worldMethods = {
           { id: 'dock_art_counter', x: 37 * TILE, y: 54 * TILE, type: 'art_easel', label: 'Port Coral Art Studio', onInteract: () => this.openArtShop() },
           { id: 'dock_market_counter', x: 44 * TILE, y: 54 * TILE, type: 'market_stall', label: 'Port Coral Fish Market', onInteract: () => this.openFishMarket() }
       );
+
+      // Port Coral boats + market crates (Sunnyside coracle / crate art)
+      this.worldProps.push(
+          { kind: 'coracle', x: 28 * TILE + 10, y: 58 * TILE + 8, onLand: false },
+          { kind: 'coracle', x: 31 * TILE + 6, y: 64 * TILE + 4, onLand: false },
+          { kind: 'coracleLand', x: 34 * TILE + 8, y: 60 * TILE + 6 },
+          { kind: 'crate', x: 43 * TILE + 18, y: 54 * TILE + 10, lid: true },
+          { kind: 'crate', x: 45 * TILE + 6, y: 55 * TILE + 4, lid: false },
+          { kind: 'crate', x: 36 * TILE + 10, y: 66 * TILE + 8, lid: true }
+      );
+
+      // Small dock garden strip (carrots) near DOCK FARM
+      [[36, 70], [38, 70], [36, 72]].forEach(([cx, cy], idx) => {
+          this.interactables.push({
+              id: `dock_carrot_${idx}`,
+              x: cx * TILE,
+              y: cy * TILE,
+              type: 'crop',
+              cropKind: 'carrot',
+              stage: 4 + (idx % 2),
+              growthTimer: CROP_STAGE_SECONDS,
+              harvested: false,
+              label: 'Harvest Dock Carrot',
+              onInteract: (obj) => {
+                  if (obj.harvested || (obj.stage ?? 5) < 5) {
+                      this.showToast('🌱 Dock carrots are still sprouting!');
+                      return;
+                  }
+                  obj.harvested = true;
+                  obj.stage = 0;
+                  obj.growthTimer = CROP_STAGE_SECONDS;
+                  this.player.pork += 1;
+                  sfx.coin();
+                  this.addFloatingText(obj.x, obj.y, '+1 Carrot', '#fb923c');
+                  this.showToast('🧺 Harvested a Port Coral carrot! (+1 Pork snack)');
+                  this.updateHUD();
+              }
+          });
+      });
 
       // Dock Guide Villager who tells you where to go in the Ocean
       this.npcs.push({
@@ -1113,9 +1217,15 @@ export const worldMethods = {
           }
       }
 
-      // 2. Blocky Village Buildings
+      // 2. Blocky Village Buildings (+ chimney smoke from pack when available)
       for (const b of this.buildings) {
           this.drawDetailedBuilding(ctx, b);
+      }
+
+      // 2b. Sprite props (windmill, boats, crates) — drawn under interactables
+      for (const prop of this.worldProps || []) {
+          if (prop.x + 80 < leftWorld || prop.x - 80 > leftWorld + vpW || prop.y + 120 < topWorld || prop.y - 40 > topWorld + vpH) continue;
+          this.drawWorldProp(ctx, prop);
       }
 
       // 3. Blocky Interactables (Well, Flags, Flowers, Submarine, Diving Gear Display, Chests, Torches, Doors)
@@ -1167,12 +1277,22 @@ export const worldMethods = {
           } else if (obj.type === 'flower' && !obj.picked) {
               this.drawDetailedFlower(ctx, ox + 22, oy + 22, obj.hex, obj.isPatch);
           } else if (obj.type === 'art_easel' || obj.type === 'market_stall') {
-              ctx.fillStyle = obj.type === 'art_easel' ? '#ec4899' : '#0284c7';
-              ctx.fillRect(ox + 4, oy + 6, 36, 28);
-              ctx.strokeStyle = '#fef08a'; ctx.lineWidth = 2;
-              ctx.strokeRect(ox + 4, oy + 6, 36, 28);
-              ctx.fillStyle = '#ffffff'; ctx.font = 'bold 16px VT323';
-              ctx.fillText(obj.type === 'art_easel' ? 'ART' : 'FISH', ox + 10, oy + 25);
+              const stallDrawn = assets.drawCrate(ctx, ox + 22, oy + 22, true);
+              if (!stallDrawn) {
+                  ctx.fillStyle = obj.type === 'art_easel' ? '#ec4899' : '#0284c7';
+                  ctx.fillRect(ox + 4, oy + 6, 36, 28);
+                  ctx.strokeStyle = '#fef08a'; ctx.lineWidth = 2;
+                  ctx.strokeRect(ox + 4, oy + 6, 36, 28);
+              }
+              if (obj.type === 'market_stall') {
+                  if (!assets.drawItemIcon(ctx, 'fish', ox + 22, oy + 6, 18)) {
+                      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 16px VT323';
+                      ctx.fillText('FISH', ox + 10, oy + 25);
+                  }
+              } else if (!assets.drawUiIcon(ctx, 'ui_plant', ox + 14, oy + 2, 18)) {
+                  ctx.fillStyle = '#ffffff'; ctx.font = 'bold 16px VT323';
+                  ctx.fillText('ART', ox + 10, oy + 25);
+              }
           } else if (obj.type === 'torch') {
               ctx.fillStyle = '#475569';
               ctx.fillRect(ox + 12, oy + 14, 20, 24);
@@ -1205,12 +1325,22 @@ export const worldMethods = {
               ctx.fillRect(ox - TILE, oy, TILE * 3, TILE);
               ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3;
               ctx.strokeRect(ox - TILE + 2, oy + 2, TILE * 3 - 4, TILE - 4);
-          } else if (obj.type === 'wheat' && !obj.harvested) {
-              for (let s = -8; s <= 8; s += 8) {
-                  ctx.fillStyle = '#ca8a04';
-                  ctx.fillRect(ox + 21 + s, oy + 14, 3, 22);
-                  ctx.fillStyle = '#facc15';
-                  ctx.fillRect(ox + 19 + s, oy + 6, 7, 12);
+          } else if (obj.type === 'wheat' || obj.type === 'crop') {
+              const stage = obj.stage ?? (obj.harvested ? 0 : 5);
+              const kind = obj.cropKind || 'wheat';
+              if (!assets.drawCropStage(ctx, kind, stage, ox, oy, TILE)) {
+                  // Procedural fallback — still show soil stub when harvested / young.
+                  if (stage > 0) {
+                      for (let s = -8; s <= 8; s += 8) {
+                          ctx.fillStyle = kind === 'carrot' ? '#ea580c' : (kind === 'pumpkin' ? '#c2410c' : '#ca8a04');
+                          ctx.fillRect(ox + 21 + s, oy + 14 + (5 - stage) * 2, 3, 10 + stage * 2);
+                          ctx.fillStyle = kind === 'sunflower' ? '#fde047' : '#facc15';
+                          ctx.fillRect(ox + 19 + s, oy + 6 + (5 - stage) * 2, 7, 6 + stage);
+                      }
+                  } else {
+                      ctx.fillStyle = '#78350f';
+                      ctx.fillRect(ox + 8, oy + 28, 28, 10);
+                  }
               }
           } else if (obj.type === 'fence') {
               ctx.fillStyle = obj.repaired ? '#b45309' : '#64748b';
@@ -1223,12 +1353,18 @@ export const worldMethods = {
           }
       }
 
-      // 4. Blocky Loot Drops
+      // 4. Loot Drops (Sunnyside food/item icons when loaded)
       for (const drop of this.lootDrops) {
-          ctx.fillStyle = '#fb7185';
-          ctx.fillRect(drop.x - 8, drop.y - 6, 16, 12);
-          ctx.fillStyle = '#ffe4e6';
-          ctx.fillRect(drop.x - 4, drop.y - 3, 5, 5);
+          const bob = Math.sin(performance.now() / 180 + drop.x) * 2;
+          const iconKind = drop.type === 'pork' ? 'pork' : (drop.type || 'egg');
+          if (!assets.drawItemIcon(ctx, iconKind, drop.x, drop.y + bob, 20)) {
+              ctx.fillStyle = '#fb7185';
+              ctx.fillRect(drop.x - 8, drop.y - 6 + bob, 16, 12);
+              ctx.fillStyle = '#ffe4e6';
+              ctx.fillRect(drop.x - 4, drop.y - 3 + bob, 5, 5);
+          } else {
+              assets.drawGlint(ctx, drop.x + 6, drop.y - 10 + bob, 1);
+          }
       }
 
       // 5. Blocky Animals
@@ -1353,19 +1489,21 @@ export const worldMethods = {
           }
       }
 
-      // Brick Chimney + Square Pixel Smoke Blocks
+      // Brick Chimney + Sunnyside chimney-smoke strip (procedural puffs as fallback)
       const chimX = x1 + w - 34;
       const chimY = y1 - 22;
       ctx.fillStyle = '#7f1d1d';
       ctx.fillRect(chimX, chimY, 16, 20);
       ctx.strokeStyle = '#450a0a';
       ctx.strokeRect(chimX, chimY, 16, 20);
-      const t = performance.now() / 600;
-      for (let i = 0; i < 3; i++) {
-          const phase = (t + i * 0.7) % 2.1;
-          ctx.fillStyle = `rgba(226, 232, 240, ${Math.max(0, 0.55 - phase * 0.25)})`;
-          const sz = Math.floor(6 + phase * 4);
-          ctx.fillRect(chimX + 4 + Math.floor(Math.sin(phase * 3) * 4), chimY - Math.floor(phase * 16), sz, sz);
+      if (!assets.drawChimneySmoke(ctx, chimX + 8, chimY)) {
+          const t = performance.now() / 600;
+          for (let i = 0; i < 3; i++) {
+              const phase = (t + i * 0.7) % 2.1;
+              ctx.fillStyle = `rgba(226, 232, 240, ${Math.max(0, 0.55 - phase * 0.25)})`;
+              const sz = Math.floor(6 + phase * 4);
+              ctx.fillRect(chimX + 4 + Math.floor(Math.sin(phase * 3) * 4), chimY - Math.floor(phase * 16), sz, sz);
+          }
       }
 
       // Paned Square Windows & Flower Boxes on front wall
@@ -1445,5 +1583,60 @@ export const worldMethods = {
           ctx.fillRect(x - 2, y - 2, 4, 4);
       }
       ctx.restore();
+  },
+
+  /**
+   * Advance crop growth stages (wheat + extra plots). Harvestable only at stage 5.
+   * After harvest, plots regrow from stage 0 — quest counter only increments on interact.
+   */
+  updateCrops(dt) {
+      if (!this.interactables) return;
+      for (const obj of this.interactables) {
+          if (obj.type !== 'wheat' && obj.type !== 'crop') continue;
+          if ((obj.stage ?? 5) >= 5) {
+              obj.harvested = false;
+              obj.stage = 5;
+              continue;
+          }
+          obj.growthTimer = (obj.growthTimer ?? CROP_STAGE_SECONDS) - dt;
+          if (obj.growthTimer <= 0) {
+              obj.stage = Math.min(5, (obj.stage ?? 0) + 1);
+              obj.growthTimer = CROP_STAGE_SECONDS;
+              if (obj.stage >= 5) obj.harvested = false;
+          }
+      }
+  },
+
+  drawWorldProp(ctx, prop) {
+      if (!prop) return;
+      if (prop.kind === 'windmill') {
+          if (!assets.drawWindmill(ctx, prop.x, prop.y, prop.scale || 1)) {
+              ctx.fillStyle = '#94a3b8';
+              ctx.fillRect(prop.x - 18, prop.y - 70, 36, 70);
+              ctx.fillStyle = '#e2e8f0';
+              ctx.fillRect(prop.x - 4, prop.y - 88, 8, 24);
+          }
+          return;
+      }
+      if (prop.kind === 'coracle') {
+          if (!assets.drawCoracle(ctx, prop.x, prop.y, !!prop.onLand)) {
+              ctx.fillStyle = '#92400e';
+              ctx.fillRect(prop.x - 20, prop.y - 8, 40, 16);
+          }
+          return;
+      }
+      if (prop.kind === 'coracleLand') {
+          if (!assets.drawCoracle(ctx, prop.x, prop.y, true)) {
+              ctx.fillStyle = '#78350f';
+              ctx.fillRect(prop.x - 18, prop.y - 10, 36, 18);
+          }
+          return;
+      }
+      if (prop.kind === 'crate') {
+          if (!assets.drawCrate(ctx, prop.x, prop.y, prop.lid !== false)) {
+              ctx.fillStyle = '#b45309';
+              ctx.fillRect(prop.x - 12, prop.y - 10, 24, 22);
+          }
+      }
   }
 };
