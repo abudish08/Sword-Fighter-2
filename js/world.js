@@ -918,27 +918,6 @@ export const worldMethods = {
       return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
   },
 
-  canWalk(px, py) {
-      const r = 11;
-      const pts = [[px - r, py - r], [px + r, py - r], [px - r, py + r], [px + r, py + r]];
-      for (const [cx, cy] of pts) {
-          const tx = Math.floor(cx / TILE), ty = Math.floor(cy / TILE);
-          const t = this.getTileAt(tx, ty);
-          if (t === T_TREE || t === T_WALL || t === T_WATER) return false;
-      }
-      return true;
-  },
-
-  getZoneName(tx, ty) {
-      if (tx < 1 || tx >= MAP_W - 1 || ty < 1 || ty >= MAP_H - 1) return "🧭 Infinite Frontier Wilds";
-      if (tx >= 94 && ty <= 42) return "🌊 Second Temple: Sunken Sanctum";
-      if (ty <= 18 && tx >= 43 && tx <= 61) return "👹 Temple 1 Boss Chamber";
-      if (ty <= 44 && tx >= 33 && tx <= 71) return "🏛️ Temple 1: Ancient Dungeon";
-      if (tx <= 41 && ty >= 47 && ty <= 75) return "🏘️ Oakvale Village";
-      if (tx >= 64 && tx <= 84 && ty >= 64 && ty <= 82) return "🎣 Crystal Fishing Lake";
-      return "🌿 Sword Fighter Overworld";
-  },
-
   canWalk(px, py, actor = this.player) {
       const r = 11;
       const pts = [[px - r, py - r], [px + r, py - r], [px - r, py + r], [px + r, py + r]];
@@ -946,8 +925,8 @@ export const worldMethods = {
           const tx = Math.floor(cx / TILE), ty = Math.floor(cy / TILE);
           const t = this.getTileAt(tx, ty);
           if (t === T_TREE || t === T_WALL) return false;
-          // Players can walk/swim in water if they unlocked Diving Gear or are at the Ocean/Water Temple
-          if (t === T_WATER && !this.player.hasDivingGear && tx > 28) return false;
+          // Per-hero diving gear (P2 must not depend on P1's flag alone)
+          if (t === T_WATER && !(actor && actor.hasDivingGear) && tx > 28) return false;
       }
       return true;
   },
@@ -980,16 +959,31 @@ export const worldMethods = {
 
       if (this.isMultiplayer) {
           const halfW = Math.floor(cw / 2);
-          // Left Viewport: Player 2
-          this.renderViewport(ctx, this.player2, 0, 0, halfW, ch, "P2 LEFT (WASD | Caps:Sword | E:Bow | Shift:Shield | 2:Pork | 3:G.Apple)");
-          // Right Viewport: Player 1
-          this.renderViewport(ctx, this.player, halfW, 0, cw - halfW, ch, "P1 RIGHT (Arrows | Enter:Sword | P:Bow | [1/2]:Weapon | 0:G.Apple)");
+          // Left Viewport: Player 2 | Right Viewport: Player 1
+          this.renderViewport(ctx, this.player2, 0, 0, halfW, ch, {
+              title: 'P2  ·  LEFT',
+              keys: 'WASD  ·  Space/Caps sword  ·  E bow  ·  Ctrl shield  ·  F act  ·  R fish  ·  2 pork  ·  3 apple',
+              accent: '#38bdf8'
+          });
+          this.renderViewport(ctx, this.player, halfW, 0, cw - halfW, ch, {
+              title: 'P1  ·  RIGHT',
+              keys: 'Arrows  ·  Enter sword  ·  P bow  ·  Shift shield  ·  Q act  ·  C fish  ·  9 pork  ·  0 apple',
+              accent: '#f59e0b'
+          });
 
           // Blocky Vertical Split Divider Bar
           ctx.fillStyle = '#0f172a';
           ctx.fillRect(halfW - 3, 0, 6, ch);
           ctx.fillStyle = '#f59e0b';
           ctx.fillRect(halfW - 1, 0, 2, ch);
+          // Tiny center hinge label so sides stay obvious
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(halfW - 14, Math.floor(ch / 2) - 18, 28, 36);
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 12px VT323';
+          ctx.textAlign = 'center';
+          ctx.fillText('2P', halfW, Math.floor(ch / 2) + 4);
+          ctx.textAlign = 'left';
       } else {
           this.renderViewport(ctx, this.player, 0, 0, cw, ch, null);
       }
@@ -1449,16 +1443,51 @@ export const worldMethods = {
       ctx.restore();
 
       if (bannerText) {
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-          ctx.fillRect(vpX + 12, vpY + 10, vpW - 24, 28);
-          ctx.strokeStyle = focusHero.id === 'P2' ? '#38bdf8' : '#f59e0b';
+          const accent = (typeof bannerText === 'object' && bannerText.accent)
+              ? bannerText.accent
+              : (focusHero.id === 'P2' ? '#38bdf8' : '#f59e0b');
+          const title = typeof bannerText === 'object' ? bannerText.title : String(bannerText);
+          const keys = typeof bannerText === 'object' ? (bannerText.keys || '') : '';
+          const boxW = Math.max(120, vpW - 20);
+          const boxH = keys ? 44 : 26;
+          const bx = vpX + 10;
+          const by = vpY + 8;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+          ctx.fillRect(bx, by, boxW, boxH);
+          ctx.strokeStyle = accent;
           ctx.lineWidth = 2;
-          ctx.strokeRect(vpX + 12, vpY + 10, vpW - 24, 28);
+          ctx.strokeRect(bx, by, boxW, boxH);
+          ctx.fillStyle = accent;
+          ctx.fillRect(bx, by, 6, boxH);
           ctx.fillStyle = '#f8fafc';
           ctx.font = 'bold 15px VT323';
-          ctx.textAlign = 'center';
-          ctx.fillText(bannerText, vpX + vpW / 2, vpY + 29);
           ctx.textAlign = 'left';
+          ctx.fillText(title, bx + 12, by + (keys ? 16 : 18));
+          if (keys) {
+              ctx.fillStyle = '#cbd5e1';
+              ctx.font = '13px VT323';
+              // Truncate gracefully so the banner stays readable on narrow halves
+              let shown = keys;
+              while (shown.length > 8 && ctx.measureText(shown).width > boxW - 18) {
+                  shown = shown.slice(0, -4) + '…';
+              }
+              ctx.fillText(shown, bx + 12, by + 34);
+          }
+
+          // Compact per-viewport HP strip (readable when top HUD is crowded)
+          const hpMax = Math.max(1, focusHero.maxHp);
+          const hpFrac = Math.max(0, Math.min(1, focusHero.hp / hpMax));
+          const barW = Math.min(110, boxW - 12);
+          const barX = bx + 6;
+          const barY = by + boxH + 6;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+          ctx.fillRect(barX, barY, barW, 8);
+          ctx.fillStyle = accent;
+          ctx.fillRect(barX, barY, Math.floor(barW * hpFrac), 8);
+          if (focusHero.yellowHp > 0) {
+              ctx.fillStyle = '#facc15';
+              ctx.fillRect(barX + Math.floor(barW * hpFrac), barY, Math.min(12, Math.floor(focusHero.yellowHp * 8)), 8);
+          }
       }
 
       if (focusHero.id === 'P1') {
