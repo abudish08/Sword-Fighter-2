@@ -912,19 +912,30 @@ export const worldMethods = {
       const startRow = Math.floor(topWorld / TILE) - 1;
       const endRow = Math.ceil((topWorld + vpH) / TILE) + 1;
 
-      // 1. 1980s Cubic Pixel Terrain Blocks (ZERO curves — pure `fillRect` pixel art!)
+      // 1. Terrain: Sunnyside tileset where mapped, procedural fillRect fallback otherwise.
       for (let y = startRow; y <= endRow; y++) {
           for (let x = startCol; x <= endCol; x++) {
               const t = this.getTileAt(x, y);
               const px = x * TILE;
               const py = y * TILE;
               const h = this.coordHash(x, y, 1);
+              const h2 = this.coordHash(x, y, 7);
 
               if (t === T_GRASS) {
-                  if (!assets.drawTile(ctx, 'grassA', px, py, TILE, x + y)) {
+                  const byWater =
+                      this.getTileAt(x, y - 1) === T_WATER ||
+                      this.getTileAt(x, y + 1) === T_WATER ||
+                      this.getTileAt(x - 1, y) === T_WATER ||
+                      this.getTileAt(x + 1, y) === T_WATER;
+                  // Shore fringe on grass next to water (still collides as grass).
+                  if (byWater) {
+                      if (!assets.drawTile(ctx, 'sand', px, py, TILE, x + y)) {
+                          ctx.fillStyle = '#e8d48b';
+                          ctx.fillRect(px, py, TILE, TILE);
+                      }
+                  } else if (!assets.drawTile(ctx, 'grassA', px, py, TILE, x + y)) {
                       ctx.fillStyle = ((x + y) % 2 === 0) ? '#2d6a4f' : '#265c43';
                       ctx.fillRect(px, py, TILE, TILE);
-                      // Cubic pixel grass blades & pixel clover blocks
                       ctx.fillStyle = '#40916c';
                       const bx = px + Math.floor(6 + h * 24);
                       const by = py + Math.floor(10 + ((h * 53) % 22));
@@ -936,8 +947,17 @@ export const worldMethods = {
                           ctx.fillRect(px + 33, py + 16, 4, 4);
                       }
                   }
+                  // Oakvale meadow deco (visual only — does not change collision).
+                  // Skip bush atlas cells: they are canopy scraps and look wrong at tile scale.
+                  if (!byWater) {
+                      if (h > 0.78) {
+                          assets.drawEnvDeco(ctx, 'mushroom', px, py, TILE, 0); // red only
+                      } else if (h > 0.70) {
+                          assets.drawEnvDeco(ctx, 'rock', px, py, TILE, Math.floor(h2 * 4));
+                      }
+                  }
               } else if (t === T_PATH) {
-                  if (!assets.drawTile(ctx, 'path', px, py, TILE)) {
+                  if (!assets.drawTile(ctx, 'path', px, py, TILE, x + y)) {
                       ctx.fillStyle = ((x + y) % 2 === 0) ? '#b08968' : '#a37b59';
                       ctx.fillRect(px, py, TILE, TILE);
                       ctx.fillStyle = '#7f5539';
@@ -952,8 +972,7 @@ export const worldMethods = {
                       ctx.fillStyle = '#1b4332';
                       ctx.fillRect(px, py, TILE, TILE);
                   }
-                  const treeFrame = Math.floor(h * 4) % 4;
-                  if (!assets.drawStrip(ctx, 'tree_deco', treeFrame, px - 4, py - 10, TILE + 8, TILE + 8)) {
+                  if (!assets.drawEnvDeco(ctx, 'tree', px, py, TILE, Math.floor(h * 8))) {
                       ctx.fillStyle = '#091c15';
                       ctx.fillRect(px + 8, py + 34, 28, 6);
                       ctx.fillStyle = '#5c3a21';
@@ -968,7 +987,7 @@ export const worldMethods = {
                       ctx.fillRect(px + 14, py + 6, 12, 8);
                   }
               } else if (t === T_WALL) {
-                  if (!assets.drawTile(ctx, 'wall', px, py, TILE)) {
+                  if (!assets.drawTile(ctx, 'wall', px, py, TILE, x + y)) {
                       ctx.fillStyle = '#334155';
                       ctx.fillRect(px, py, TILE, TILE);
                       ctx.fillStyle = '#475569';
@@ -986,11 +1005,11 @@ export const worldMethods = {
                   if (t === T_TEMPLE2_FLOOR || t === T_WATER_TEMPLE_FLOOR) {
                       tiled = assets.drawTile(ctx, 'temple', px, py, TILE, x + y);
                   } else if (t === T_FIRE_FLOOR) {
-                      tiled = assets.drawTile(ctx, 'fireFloor', px, py, TILE);
+                      tiled = assets.drawTile(ctx, 'fireFloor', px, py, TILE, x + y);
                   } else if (t === T_SUB_FLOOR) {
                       tiled = assets.drawTile(ctx, 'subFloor', px, py, TILE);
                   } else {
-                      tiled = assets.drawTile(ctx, 'dungeon', px, py, TILE);
+                      tiled = assets.drawTile(ctx, 'dungeon', px, py, TILE, x + y);
                   }
                   if (!tiled) {
                       if (t === T_TEMPLE2_FLOOR || t === T_WATER_TEMPLE_FLOOR) {
@@ -1006,23 +1025,37 @@ export const worldMethods = {
                       ctx.fillStyle = 'rgba(255,255,255,0.06)';
                       ctx.fillRect(px + 2, py + 2, TILE - 4, 2);
                   }
+                  // Water-temple glitter / fire-temple embers (visual only).
+                  if ((t === T_WATER_TEMPLE_FLOOR || t === T_TEMPLE2_FLOOR) && h > 0.88) {
+                      assets.drawEnvDeco(ctx, 'glint', px, py, TILE, Math.floor(h2 * 6));
+                  }
+                  if (t === T_FIRE_FLOOR && h > 0.9) {
+                      assets.drawEnvDeco(ctx, 'fire', px, py, TILE, Math.floor(h2 * 4));
+                  }
               } else if (t === T_VOLCANO_ROCK) {
-                  if (!assets.drawTile(ctx, 'volcano', px, py, TILE)) {
+                  if (!assets.drawTile(ctx, 'volcano', px, py, TILE, x + y)) {
                       ctx.fillStyle = ((x + y) % 2 === 0) ? '#451a03' : '#290f02';
                       ctx.fillRect(px, py, TILE, TILE);
                       ctx.fillStyle = '#78350f';
                       ctx.fillRect(px + 6, py + 8, 12, 8);
                       ctx.fillRect(px + 24, py + 24, 10, 8);
                   }
+                  if (h > 0.86) {
+                      assets.drawEnvDeco(ctx, 'fire', px, py, TILE, Math.floor(h2 * 4));
+                  } else if (h > 0.78) {
+                      assets.drawEnvDeco(ctx, 'rock', px, py, TILE, Math.floor(h2 * 4));
+                  }
               } else if (t === T_LAVA) {
+                  // Pack has no magma cell — procedural lava + fire VFX overlay.
                   const lavaShift = Math.floor(performance.now() / 220 + x + y);
-                  if (!assets.drawTile(ctx, 'lava', px, py, TILE, lavaShift)) {
-                      ctx.fillStyle = '#dc2626';
-                      ctx.fillRect(px, py, TILE, TILE);
-                      const shift = lavaShift % 2;
-                      ctx.fillStyle = shift === 0 ? '#f97316' : '#facc15';
-                      ctx.fillRect(px + 6, py + 10, 14, 6);
-                      ctx.fillRect(px + 22, py + 26, 14, 6);
+                  ctx.fillStyle = '#dc2626';
+                  ctx.fillRect(px, py, TILE, TILE);
+                  const shift = lavaShift % 2;
+                  ctx.fillStyle = shift === 0 ? '#f97316' : '#facc15';
+                  ctx.fillRect(px + 6, py + 10, 14, 6);
+                  ctx.fillRect(px + 22, py + 26, 14, 6);
+                  if (h > 0.45) {
+                      assets.drawEnvDeco(ctx, 'fire', px, py, TILE, lavaShift);
                   }
               } else if (t === T_CHASM) {
                   if (!assets.drawTile(ctx, 'chasm', px, py, TILE)) {
@@ -1051,13 +1084,30 @@ export const worldMethods = {
                       ctx.fillRect(px, py + 29, TILE, 2);
                   }
               } else if (t === T_WATER) {
+                  const nLand =
+                      this.getTileAt(x, y - 1) !== T_WATER ||
+                      this.getTileAt(x, y + 1) !== T_WATER ||
+                      this.getTileAt(x - 1, y) !== T_WATER ||
+                      this.getTileAt(x + 1, y) !== T_WATER;
                   if (!assets.drawTile(ctx, 'water', px, py, TILE)) {
-                      ctx.fillStyle = '#0284c7';
+                      ctx.fillStyle = nLand ? '#0ea5e9' : '#0284c7';
                       ctx.fillRect(px, py, TILE, TILE);
                       const waveShift = Math.floor(performance.now() / 300 + x + y) % 2 === 0 ? 0 : 4;
                       ctx.fillStyle = '#38bdf8';
                       ctx.fillRect(px + 6 + waveShift, py + 12, 14, 3);
                       ctx.fillRect(px + 18 - waveShift, py + 28, 14, 3);
+                  }
+                  if (nLand) {
+                      ctx.globalAlpha = 0.55;
+                      assets.drawEnvDeco(ctx, 'foam', px, py, TILE, x + y);
+                      ctx.globalAlpha = 1;
+                  }
+                  if (h > 0.9) {
+                      assets.drawEnvDeco(ctx, 'glint', px, py, TILE, Math.floor(h2 * 6));
+                  }
+                  // Occasional beached / floating coracle near west ocean (visual only).
+                  if (x < 28 && h > 0.965 && h2 > 0.5) {
+                      assets.drawEnvDeco(ctx, 'coracle', px, py, TILE, Math.floor(h2 * 4));
                   }
               }
           }

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sunnyside environment demo</title>
+  <style>
+    body { margin: 0; background: #0f172a; font-family: monospace; color: #f8fafc; }
+    h1 { font-size: 14px; margin: 12px 16px; }
+    #grid { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; }
+    .card { background: #1e293b; border: 2px solid #64748b; padding: 8px; }
+    .card h2 { margin: 0 0 8px; font-size: 13px; color: #fbbf24; }
+    canvas { image-rendering: pixelated; display: block; background: #020617; }
+    #status { margin: 0 16px 8px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <h1>Sword Fighter 2 — richer Sunnyside environments</h1>
+  <div id="status">Loading…</div>
+  <div id="grid"></div>
+  <script type="module">
+    import { assets, CURATED_ASSETS } from '../js/assets.js';
+
+    const TS = 44;
+
+    const result = await assets.loadAll(CURATED_ASSETS);
+    document.getElementById('status').textContent =
+      `Loaded ${result.ok}/${result.total} (failed ${result.failed}) — procedural fallback for unmapped cells`;
+
+    const biomes = [
+      {
+        id: 'oakvale',
+        title: 'Oakvale (grass / path / trees / deco)',
+        cols: 12,
+        rows: 8,
+        cell: (x, y) => {
+          if (y === 4 || x === 5) return 'path';
+          if ((x + y * 3) % 7 === 0) return 'tree';
+          return 'grass';
+        },
+      },
+      {
+        id: 'temple',
+        title: 'Temples (stone floors / walls / glint)',
+        cols: 12,
+        rows: 8,
+        cell: (x, y) => {
+          if (x === 0 || y === 0 || x === 11 || y === 7) return 'wall';
+          if (y >= 3 && y <= 4 && x >= 4 && x <= 7) return 'dungeon';
+          return (x + y) % 5 === 0 ? 'templeB' : 'temple';
+        },
+      },
+      {
+        id: 'ocean',
+        title: 'Ocean (water / sand shore / foam / glint)',
+        cols: 12,
+        rows: 8,
+        cell: (x, y) => {
+          if (x >= 8) return 'grass';
+          if (x === 7) return 'sand';
+          return 'water';
+        },
+      },
+      {
+        id: 'volcano',
+        title: 'Volcano (rock / lava+fire / ash)',
+        cols: 12,
+        rows: 8,
+        cell: (x, y) => {
+          if (y >= 3 && y <= 4) return 'lava';
+          if ((x + y) % 4 === 0) return 'volcanoB';
+          return 'volcano';
+        },
+      },
+    ];
+
+    const grid = document.getElementById('grid');
+
+    function drawBiome(spec) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.biome = spec.id;
+      const h2 = document.createElement('h2');
+      h2.textContent = spec.title;
+      const canvas = document.createElement('canvas');
+      canvas.width = spec.cols * TS;
+      canvas.height = spec.rows * TS;
+      canvas.id = `env-${spec.id}`;
+      card.appendChild(h2);
+      card.appendChild(canvas);
+      grid.appendChild(card);
+
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+
+      const map = [];
+      for (let y = 0; y < spec.rows; y++) {
+        map[y] = [];
+        for (let x = 0; x < spec.cols; x++) map[y][x] = spec.cell(x, y);
+      }
+
+      for (let y = 0; y < spec.rows; y++) {
+        for (let x = 0; x < spec.cols; x++) {
+          const kind = map[y][x];
+          const px = x * TS;
+          const py = y * TS;
+          const h = ((x * 17 + y * 31) % 100) / 100;
+
+          if (kind === 'grass') {
+            if (!assets.drawTile(ctx, 'grassA', px, py, TS, x + y)) {
+              ctx.fillStyle = (x + y) % 2 ? '#265c43' : '#2d6a4f';
+              ctx.fillRect(px, py, TS, TS);
+            }
+            if (h > 0.65) assets.drawEnvDeco(ctx, 'mushroom', px, py, TS, 0);
+            else if (h > 0.4) assets.drawEnvDeco(ctx, 'rock', px, py, TS, x + y);
+          } else if (kind === 'path') {
+            if (!assets.drawTile(ctx, 'path', px, py, TS, x + y)) {
+              ctx.fillStyle = '#b08968';
+              ctx.fillRect(px, py, TS, TS);
+            }
+          } else if (kind === 'tree') {
+            if (!assets.drawTile(ctx, 'grassA', px, py, TS, x + y)) {
+              ctx.fillStyle = '#1b4332';
+              ctx.fillRect(px, py, TS, TS);
+            }
+            if (!assets.drawEnvDeco(ctx, 'tree', px, py, TS, x + y)) {
+              ctx.fillStyle = '#16a34a';
+              ctx.fillRect(px + 8, py + 4, 28, 24);
+            }
+          } else if (kind === 'sand') {
+            if (!assets.drawTile(ctx, 'sand', px, py, TS)) {
+              ctx.fillStyle = '#e8d48b';
+              ctx.fillRect(px, py, TS, TS);
+            }
+          } else if (kind === 'water') {
+            if (!assets.drawTile(ctx, 'water', px, py, TS)) {
+              ctx.fillStyle = '#0284c7';
+              ctx.fillRect(px, py, TS, TS);
+            }
+            const shore = x === 6 || (map[y][x + 1] && map[y][x + 1] !== 'water');
+            if (shore) {
+              ctx.globalAlpha = 0.55;
+              assets.drawEnvDeco(ctx, 'foam', px, py, TS, x + y);
+              ctx.globalAlpha = 1;
+            }
+            if (h > 0.75) assets.drawEnvDeco(ctx, 'glint', px, py, TS, x);
+            if (x < 3 && h > 0.9) assets.drawEnvDeco(ctx, 'coracle', px, py, TS, y);
+          } else if (kind === 'temple' || kind === 'templeB') {
+            if (!assets.drawTile(ctx, 'temple', px, py, TS, kind === 'templeB' ? 1 : x + y)) {
+              ctx.fillStyle = '#0c4a6e';
+              ctx.fillRect(px, py, TS, TS);
+            }
+            if (h > 0.85) assets.drawEnvDeco(ctx, 'glint', px, py, TS, x);
+          } else if (kind === 'dungeon') {
+            if (!assets.drawTile(ctx, 'dungeon', px, py, TS, x + y)) {
+              ctx.fillStyle = '#1e293b';
+              ctx.fillRect(px, py, TS, TS);
+            }
+          } else if (kind === 'wall') {
+            if (!assets.drawTile(ctx, 'wall', px, py, TS, x + y)) {
+              ctx.fillStyle = '#334155';
+              ctx.fillRect(px, py, TS, TS);
+            }
+          } else if (kind === 'volcano' || kind === 'volcanoB') {
+            if (!assets.drawTile(ctx, 'volcano', px, py, TS, kind === 'volcanoB' ? 1 : x + y)) {
+              ctx.fillStyle = '#451a03';
+              ctx.fillRect(px, py, TS, TS);
+            }
+            if (h > 0.7) assets.drawEnvDeco(ctx, 'fire', px, py, TS, x);
+          } else if (kind === 'lava') {
+            ctx.fillStyle = '#dc2626';
+            ctx.fillRect(px, py, TS, TS);
+            ctx.fillStyle = (x + y) % 2 ? '#f97316' : '#facc15';
+            ctx.fillRect(px + 6, py + 10, 14, 6);
+            ctx.fillRect(px + 22, py + 26, 14, 6);
+            assets.drawEnvDeco(ctx, 'fire', px, py, TS, x + y);
+          }
+        }
+      }
+    }
+
+    for (const b of biomes) drawBiome(b);
+  </script>
+</body>
+</html>

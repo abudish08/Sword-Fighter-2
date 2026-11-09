@@ -181,8 +181,16 @@ export const CURATED_ASSETS = [
     // World
     { key: 'tileset_16', url: `${ASSET_ROOT}/Tileset/spr_tileset_sunnysideworld_16px.png` },
     { key: 'tree_deco', url: `${ASSET_ROOT}/Elements/Plants/spr_deco_tree_01_strip4.png`, frames: 4 },
+    { key: 'tree_deco_b', url: `${ASSET_ROOT}/Elements/Plants/spr_deco_tree_02_strip4.png`, frames: 4 },
+    { key: 'mushroom_red', url: `${ASSET_ROOT}/Elements/Plants/spr_deco_mushroom_red_01_strip4.png`, frames: 4 },
+    { key: 'mushroom_blue', url: `${ASSET_ROOT}/Elements/Plants/spr_deco_mushroom_blue_01_strip4.png`, frames: 4 },
     { key: 'fire_deco', url: `${ASSET_ROOT}/Elements/VFX/Fire/spr_deco_fire_01_strip4.png`, frames: 4 },
     { key: 'fire_deco_b', url: `${ASSET_ROOT}/Elements/VFX/Fire/spr_deco_fire_02_strip4.png`, frames: 4 },
+    { key: 'glint_a', url: `${ASSET_ROOT}/Elements/VFX/Glint/spr_deco_glint_01_strip6.png`, frames: 6 },
+    { key: 'glint_b', url: `${ASSET_ROOT}/Elements/VFX/Glint/spr_deco_glint_02_strip4.png`, frames: 4 },
+    { key: 'coracle', url: `${ASSET_ROOT}/Elements/Other/spr_deco_coracle_land.png` },
+    { key: 'coracle_water', url: `${ASSET_ROOT}/Elements/Other/spr_deco_coracle_strip4.png`, frames: 4 },
+    { key: 'rock_deco', url: `${ASSET_ROOT}/Elements/Crops/rock.png` },
 
     // UI icons
     { key: 'ui_sword', url: `${ASSET_ROOT}/UI/sword.png` },
@@ -195,27 +203,52 @@ export const CURATED_ASSETS = [
 ];
 
 /**
- * 16px tileset atlas cells (col, row) for key terrain.
+ * 16px tileset atlas cells (col, row) for key terrain + deco.
  * Hand-picked from spr_tileset_sunnysideworld_16px.png (64×64 cells).
+ * Lava is intentionally unmapped — pack has no magma cell; world uses
+ * procedural lava + fire VFX overlays.
  */
 export const TILE_ATLAS = {
     grassA: { col: 1, row: 1 },
     grassB: { col: 2, row: 1 },
     path: { col: 3, row: 1 },
+    pathB: { col: 7, row: 1 },         // speckled dirt path
+    sand: { col: 5, row: 1 },
     water: { col: 4, row: 1 },
-    wall: { col: 8, row: 2 },          // solid slate block (old 7,2 was sparse)
+    wall: { col: 8, row: 2 },          // solid slate block
+    wallB: { col: 1, row: 16 },        // blue-gray masonry
     wood: { col: 14, row: 2 },
     dirt: { col: 12, row: 7 },
     dungeon: { col: 6, row: 1 },       // dark packed earth / stone
-    lava: { col: 12, row: 11 },        // bright magma
-    lavaB: { col: 12, row: 12 },
     bridge: { col: 14, row: 2 },       // wood plank over chasm
     chasm: { col: 12, row: 0 },        // pure black void cell
-    temple: { col: 44, row: 1 },       // cool blue stone
-    templeB: { col: 45, row: 1 },
+    temple: { col: 1, row: 16 },       // cool blue-gray stone floor
+    templeB: { col: 5, row: 15 },
+    templeC: { col: 10, row: 16 },
     fireFloor: { col: 11, row: 4 },    // scorched brown rock
     volcano: { col: 11, row: 4 },
+    volcanoB: { col: 12, row: 7 },     // warm dirt / ash
     subFloor: { col: 8, row: 2 },
+    // Soft deco cells (may include transparent pixels) — draw smaller via drawEnvDeco
+    foamA: { col: 3, row: 18 },
+    foamB: { col: 4, row: 18 },
+    bushA: { col: 51, row: 1 },
+    bushB: { col: 52, row: 1 },
+    bushC: { col: 51, row: 2 },
+    bushD: { col: 52, row: 2 },
+};
+
+/** Variant lists for drawTile cycling (floor/wall fills only — no sparse deco cells). */
+export const TILE_VARIANTS = {
+    grassA: ['grassA', 'grassB'],
+    path: ['path', 'path', 'path', 'pathB'], // mostly packed dirt; occasional speckled
+    wall: ['wall', 'wallB'],
+    dungeon: ['dungeon'],
+    temple: ['temple', 'templeB', 'templeC'],
+    fireFloor: ['fireFloor', 'volcano', 'volcanoB'],
+    volcano: ['volcano', 'volcanoB'],
+    foamA: ['foamA', 'foamB'],
+    bushA: ['bushA', 'bushB', 'bushC', 'bushD'],
 };
 
 /** Enemy type → Sunnyside character sheet keys. */
@@ -608,22 +641,41 @@ export class AssetLoader {
     }
 
     /**
+     * Resolve atlas key through TILE_VARIANTS (stable pick from variant index).
+     */
+    resolveAtlasKey(atlasKey, variant = 0) {
+        const list = TILE_VARIANTS[atlasKey];
+        if (list && list.length) {
+            const idx = ((variant % list.length) + list.length) % list.length;
+            return list[idx];
+        }
+        return atlasKey;
+    }
+
+    /**
      * Draw a 16px tileset cell scaled to dest size.
+     * Returns false when the key is unmapped or the sheet failed to load
+     * (caller should keep procedural fillRect fallback).
      */
     drawTile(ctx, atlasKey, dx, dy, size, variant = 0) {
         const img = this.getImage('tileset_16');
         if (!img) return false;
-        let cell = TILE_ATLAS[atlasKey];
+        const key = this.resolveAtlasKey(atlasKey, variant);
+        const cell = TILE_ATLAS[key];
         if (!cell) return false;
-        if (atlasKey === 'grassA' || atlasKey === 'grassB') {
-            cell = variant % 2 === 0 ? TILE_ATLAS.grassA : TILE_ATLAS.grassB;
-        } else if (atlasKey === 'lava') {
-            cell = variant % 2 === 0 ? TILE_ATLAS.lava : (TILE_ATLAS.lavaB || TILE_ATLAS.lava);
-        } else if (atlasKey === 'temple') {
-            cell = variant % 2 === 0 ? TILE_ATLAS.temple : (TILE_ATLAS.templeB || TILE_ATLAS.temple);
-        }
         const ts = 16;
         ctx.drawImage(img, cell.col * ts, cell.row * ts, ts, ts, dx, dy, size, size);
+        return true;
+    }
+
+    /**
+     * Draw a raw atlas cell by col/row (for one-off deco not in TILE_ATLAS).
+     */
+    drawAtlasCell(ctx, col, row, dx, dy, size) {
+        const img = this.getImage('tileset_16');
+        if (!img) return false;
+        const ts = 16;
+        ctx.drawImage(img, col * ts, row * ts, ts, ts, dx, dy, size, size);
         return true;
     }
 
@@ -632,6 +684,56 @@ export class AssetLoader {
         if (!img) return false;
         ctx.drawImage(img, dx, dy, dw, dh);
         return true;
+    }
+
+    /**
+     * Lightweight biome deco overlays (visual only — no collision change).
+     * kind: 'bush' | 'mushroom' | 'rock' | 'foam' | 'fire' | 'glint' | 'coracle' | 'tree'
+     */
+    drawEnvDeco(ctx, kind, dx, dy, size, variant = 0) {
+        const s = size || 44;
+        if (kind === 'bush') {
+            // Foliage cells are sparse — inset so they sit on grass, not replace it.
+            const inset = Math.floor(s * 0.12);
+            return this.drawTile(ctx, 'bushA', dx + inset, dy + inset, s - inset * 2, variant);
+        }
+        if (kind === 'foam') {
+            // Foam/cloud cells — draw as a fringe, not a full opaque tile.
+            const inset = Math.floor(s * 0.05);
+            return this.drawTile(ctx, 'foamA', dx + inset, dy + inset, s - inset * 2, variant);
+        }
+        if (kind === 'mushroom') {
+            const key = variant % 2 === 0 ? 'mushroom_red' : 'mushroom_blue';
+            const frame = Math.floor(performance.now() / 220 + variant) % 4;
+            return this.drawStrip(ctx, key, frame, dx + s * 0.15, dy + s * 0.2, s * 0.7, s * 0.7);
+        }
+        if (kind === 'rock') {
+            return this.drawImage(ctx, 'rock_deco', dx + s * 0.2, dy + s * 0.35, s * 0.55, s * 0.4);
+        }
+        if (kind === 'fire') {
+            const key = variant % 2 === 0 ? 'fire_deco' : 'fire_deco_b';
+            const frame = Math.floor(performance.now() / 120 + variant) % 4;
+            return this.drawStrip(ctx, key, frame, dx + s * 0.1, dy + s * 0.05, s * 0.8, s * 0.9);
+        }
+        if (kind === 'glint') {
+            const key = variant % 2 === 0 ? 'glint_a' : 'glint_b';
+            const frames = this.getMeta(key)?.frames || 4;
+            const frame = Math.floor(performance.now() / 140 + variant) % frames;
+            return this.drawStrip(ctx, key, frame, dx + s * 0.25, dy + s * 0.25, s * 0.5, s * 0.5);
+        }
+        if (kind === 'coracle') {
+            if (variant % 2 === 0) {
+                return this.drawImage(ctx, 'coracle', dx + 2, dy + 4, s - 4, s - 8);
+            }
+            const frame = Math.floor(performance.now() / 180) % 4;
+            return this.drawStrip(ctx, 'coracle_water', frame, dx + 2, dy + 4, s - 4, s - 8);
+        }
+        if (kind === 'tree') {
+            const key = variant % 2 === 0 ? 'tree_deco' : 'tree_deco_b';
+            const frame = Math.floor(variant) % 4;
+            return this.drawStrip(ctx, key, frame, dx - 4, dy - 10, s + 8, s + 8);
+        }
+        return false;
     }
 
     /**
