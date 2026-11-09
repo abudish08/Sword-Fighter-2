@@ -64,18 +64,23 @@ Or any other static server (VS Code Live Server, `npx serve`, etc.).
 - Fast-travel flags
 - 4 save slots (stored in browser localStorage)
 - Split-screen multiplayer
-- Retro chiptune music and sound effects
+- Hybrid audio: Kenney / artisticdude **CC0** samples + richer Web Audio chiptune BGM (Settings mute toggles still work)
 - Sunnyside World sprites where mapped (hero, enemies, animals/NPCs, biomes, UI), with procedural `fillRect` fallback
 
-## Art assets (Sunnyside)
+## Art assets (Sunnyside + free UI/SFX)
 
 Pack files live in `public/assets/sunnyside/`. On boot, `js/assets.js` loads a **curated slice** (see `CURATED_ASSETS`) with a progress bar. Missing images do not block play — draws fall back to the original blocky Canvas path.
 
-**Currently sprite-backed:** Human hero action set, Goblin→blob & Skeleton→snake, animals/NPCs/boss stand-ins, Oakvale/temple/ocean/volcano tiles + plant/foam/fire/glint/coracle deco, title/HUD icons.
+**Currently sprite-backed:** Human hero action set, Goblin→blob & Skeleton→snake, animals/NPCs/boss stand-ins, Oakvale/temple/ocean/volcano tiles + plant/foam/fire/glint/coracle deco, HUD tools (sword/rod/water/basket/…), Kenney CC0 chrome icons (gear/music/audio/save/home).
 
-**Still procedural:** lava magma fill (pack has no lava cell — fire VFX overlays it), diving outfit, most building roofs / interactable props, HUD emoji, weapons/FX overlays.
+**Still procedural / emoji gaps:** lava magma fill (no lava cell — fire VFX overlays it), diving outfit, most building roofs, true bow/shield glyphs (emoji kept), pork chop / golden apple (crop/egg stand-ins).
 
-**Adding more:** append a `{ key, url, frames? }` row to `CURATED_ASSETS` in `js/assets.js`, map it in `TILE_ATLAS` / `ENEMY_SPRITES` (or call `assets.drawStrip` / `assets.drawTile` / `assets.drawEnvDeco` from the draw path), and keep the `fillRect` branch as fallback. Biome smoke: `tools/env-demo.html`.
+**Free CC0 UI/SFX (attribution READMEs in-folder):**
+- `public/assets/kenney/` — Kenney Game Icons + Interface Sounds (+ UI RPG bars)
+- `public/assets/sfx/rpg/` — curated artisticdude RPG Sound Pack samples
+- `public/assets/cc0/hearts.png` — firehawk hearts strip
+
+**Adding more:** append a `{ key, url, frames? }` row to `CURATED_ASSETS` in `js/assets.js`, map it in `TILE_ATLAS` / `ENEMY_SPRITES` / `UI_ICONS` (or call `assets.drawStrip` / `assets.drawTile` / `assets.drawEnvDeco` from the draw path), and keep the `fillRect` / emoji branch as fallback. Biome smoke: `tools/env-demo.html`.
 
 ## Tips
 - Explore West for the ocean and submarine, East for the volcano.

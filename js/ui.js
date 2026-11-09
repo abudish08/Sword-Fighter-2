@@ -2,7 +2,7 @@
  * Menus, save slots, HUD, modals, art shop, fish market, quests, i18n.
  */
 
-import { sfx, assets } from './assets.js';
+import { sfx, assets, UI_ICONS } from './assets.js';
 import { TILE } from './world.js';
 
 export const I18N = {
@@ -359,6 +359,8 @@ export const uiMethods = {
       const btn = document.getElementById('btn-setting-bgm');
       btn.textContent = sfx.bgmEnabled ? 'ON' : 'OFF';
       btn.className = sfx.bgmEnabled ? 'hd-btn px-4 py-1.5 text-xs' : 'hd-btn-secondary px-4 py-1.5 text-xs';
+      this.refreshMuteIcons();
+      sfx.playBuffer('ui_switch', 0.28) || sfx.unlock();
   },
 
   toggleSFX() {
@@ -367,16 +369,39 @@ export const uiMethods = {
       const btn = document.getElementById('btn-setting-sfx');
       btn.textContent = sfx.sfxEnabled ? 'ON' : 'OFF';
       btn.className = sfx.sfxEnabled ? 'hd-btn px-4 py-1.5 text-xs' : 'hd-btn-secondary px-4 py-1.5 text-xs';
+      this.refreshMuteIcons();
+      // Play feedback only when turning SFX back on (respect mute).
+      if (sfx.sfxEnabled) sfx.playBuffer('ui_click', 0.3) || sfx.coin();
+  },
+
+  refreshMuteIcons() {
+      const bgmImg = document.getElementById('icon-setting-bgm');
+      const sfxImg = document.getElementById('icon-setting-sfx');
+      const bgmKey = sfx.bgmEnabled ? 'kenney_music_on' : 'kenney_music_off';
+      const sfxKey = sfx.sfxEnabled ? 'kenney_audio_on' : 'kenney_audio_off';
+      const bgm = assets.getImage(bgmKey);
+      const sfxI = assets.getImage(sfxKey);
+      if (bgmImg && bgm) {
+          bgmImg.src = bgm.src;
+          bgmImg.classList.remove('hidden');
+      }
+      if (sfxImg && sfxI) {
+          sfxImg.src = sfxI.src;
+          sfxImg.classList.remove('hidden');
+      }
   },
 
   setLanguage(lang) {
       this.lang = lang;
       const t = I18N[lang] || I18N.en;
-      document.getElementById('btn-title-play').textContent = t.play;
-      const multiBtn = document.getElementById('btn-title-multi');
-      if (multiBtn) multiBtn.textContent = t.multi;
-      document.getElementById('btn-title-settings').textContent = t.settings;
-      document.getElementById('btn-title-leave').textContent = t.leave;
+      const setLbl = (id, text) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = text;
+      };
+      setLbl('btn-title-play-label', t.play);
+      setLbl('btn-title-multi-label', t.multi);
+      setLbl('btn-title-settings-label', t.settings);
+      setLbl('btn-title-leave-label', t.leave);
       document.getElementById('ui-select-mode').textContent = t.selectMode;
       document.getElementById('tab-continue-btn').textContent = t.continueBtn;
       document.getElementById('tab-new-btn').textContent = t.newGameBtn;
@@ -390,8 +415,8 @@ export const uiMethods = {
       document.getElementById('ui-btn-map').textContent = t.mapBtn;
       document.getElementById('ui-tracker-title').textContent = t.trackerTitle;
       document.getElementById('ui-settings-title').textContent = t.settingsTitle;
-      document.getElementById('ui-lbl-bgm').textContent = t.bgm;
-      document.getElementById('ui-lbl-sfx').textContent = t.sfx;
+      setLbl('ui-lbl-bgm-text', t.bgm);
+      setLbl('ui-lbl-sfx-text', t.sfx);
       document.getElementById('ui-lbl-lang').textContent = t.lang;
       document.getElementById('ui-inv-title').textContent = t.invTitle;
       document.getElementById('ui-questlog-title').textContent = t.questLogTitle;
@@ -1093,23 +1118,71 @@ export const uiMethods = {
       document.getElementById('puzzle-input-display').textContent = padded;
   },
 
+  _makeHeartImg(kind) {
+      const img = document.createElement('img');
+      img.width = 16;
+      img.height = 16;
+      img.alt = '';
+      img.style.imageRendering = 'pixelated';
+      img.className = 'inline-block align-middle';
+
+      // Prefer dedicated CC0 heart strip for red HP pips (clearer than love glyph).
+      const strip = assets.getImage('cc0_hearts');
+      if (strip && kind !== 'yellow') {
+          const canvas = document.createElement('canvas');
+          canvas.width = 16;
+          canvas.height = 16;
+          const c = canvas.getContext('2d');
+          c.imageSmoothingEnabled = false;
+          const frame = kind === 'full' ? 0 : (kind === 'half' ? 1 : 3);
+          c.drawImage(strip, frame * 16, 0, 16, 16, 0, 0, 16, 16);
+          img.src = canvas.toDataURL();
+          return img;
+      }
+
+      const key = kind === 'full' ? UI_ICONS.heart
+          : kind === 'empty' ? UI_ICONS.heartEmpty
+          : kind === 'yellow' ? UI_ICONS.yellowHeart
+          : UI_ICONS.heart;
+      const src = assets.getImage(key);
+      if (src) {
+          img.src = src.src;
+          if (kind === 'empty') img.style.opacity = '0.4';
+          if (kind === 'half') img.style.opacity = '0.7';
+          return img;
+      }
+      return null;
+  },
+
   updateHUD() {
       const renderHearts = (el, actor) => {
           if (!el) return;
           el.innerHTML = '';
           const totalRed = Math.ceil(actor.maxHp);
           for (let i = 1; i <= totalRed; i++) {
-              const span = document.createElement('span');
-              span.className = 'text-base leading-none';
-              span.textContent = actor.hp >= i ? '❤️' : (actor.hp >= i - 0.5 ? '💔' : '🖤');
-              el.appendChild(span);
+              const kind = actor.hp >= i ? 'full' : (actor.hp >= i - 0.5 ? 'half' : 'empty');
+              const img = this._makeHeartImg(kind);
+              if (img) {
+                  el.appendChild(img);
+              } else {
+                  const span = document.createElement('span');
+                  span.className = 'text-base leading-none';
+                  span.textContent = kind === 'full' ? '❤️' : (kind === 'half' ? '💔' : '🖤');
+                  el.appendChild(span);
+              }
           }
           const totalYellow = Math.ceil(actor.yellowHp);
           for (let i = 1; i <= totalYellow; i++) {
-              const span = document.createElement('span');
-              span.className = 'text-base leading-none';
-              span.textContent = actor.yellowHp >= i ? '💛' : '⭐';
-              el.appendChild(span);
+              const img = this._makeHeartImg('yellow');
+              if (img) {
+                  if (actor.yellowHp < i) img.style.opacity = '0.35';
+                  el.appendChild(img);
+              } else {
+                  const span = document.createElement('span');
+                  span.className = 'text-base leading-none';
+                  span.textContent = actor.yellowHp >= i ? '💛' : '⭐';
+                  el.appendChild(span);
+              }
           }
       };
 
@@ -1123,11 +1196,10 @@ export const uiMethods = {
       document.getElementById('hud-gapples').textContent = this.player.goldenApples;
       document.getElementById('hud-arrows').textContent = this.player.arrows;
 
-      // Regular Sword Slot
+      // Regular Sword Slot (do not wipe sprite icons with emoji textContent)
       const mainSwordSlot = document.getElementById('slot-main-sword');
       if (this.player.weapon === 'iron_sword') {
           document.getElementById('sword-name').textContent = 'Iron Sword [1]';
-          document.getElementById('sword-icon').textContent = '⚔️';
           const dmgLbl = document.getElementById('sword-dmg-label');
           if (dmgLbl) dmgLbl.textContent = '10 DMG • Fast';
       }
@@ -1151,7 +1223,6 @@ export const uiMethods = {
           bowSlot.classList.add('border-emerald-400');
           if (this.player.hasIceTripleBow) {
               document.getElementById('ui-hud-bow').textContent = 'Ice Bow (3x)';
-              document.getElementById('bow-icon').textContent = '❄️';
           }
       }
 
@@ -1194,11 +1265,25 @@ export const uiMethods = {
   },
 
   /**
-   * Swap a few HUD/title emoji for Sunnyside UI icons when those PNGs loaded.
+   * Swap HUD/title emoji for Sunnyside (preferred) or Kenney/CC0 icons when loaded.
    * Safe no-op if assets failed — emoji stay visible.
    */
   refreshSpriteUI() {
-      const swordImg = assets.getImage('ui_sword');
+      const applyPair = (role, assetKey) => {
+          if (!assetKey) return false;
+          const img = assets.getImage(assetKey);
+          if (!img) return false;
+          document.querySelectorAll(`[data-ui-icon="${role}"]`).forEach((el) => {
+              el.src = img.src;
+              el.classList.remove('hidden');
+          });
+          document.querySelectorAll(`[data-ui-emoji="${role}"]`).forEach((el) => {
+              el.classList.add('hidden');
+          });
+          return true;
+      };
+
+      const swordImg = assets.getImage(UI_ICONS.sword);
       const titleImg = document.getElementById('title-sword-icon');
       const titleEmoji = document.getElementById('title-sword-emoji');
       if (swordImg && titleImg && titleEmoji) {
@@ -1206,18 +1291,12 @@ export const uiMethods = {
           titleImg.classList.remove('hidden');
           titleEmoji.classList.add('hidden');
       }
-      const hudIcon = document.getElementById('sword-icon');
-      if (swordImg && hudIcon) {
-          hudIcon.textContent = '';
-          const img = document.createElement('img');
-          img.src = swordImg.src;
-          img.alt = 'Sword';
-          img.width = 18;
-          img.height = 18;
-          img.style.imageRendering = 'pixelated';
-          img.className = 'inline-block align-middle';
-          hudIcon.appendChild(img);
-      }
+
+      Object.entries(UI_ICONS).forEach(([role, key]) => applyPair(role, key));
+      // Title play uses Kenney singleplayer when available
+      applyPair('play', 'kenney_single');
+
+      this.refreshMuteIcons();
   },
 
   showToast(msg) {

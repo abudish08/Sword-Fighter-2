@@ -19,83 +19,267 @@
  * Served from the repo root (no Vite yet), so URLs start with `public/assets/...`.
  */
 
+/**
+ * Hybrid audio: Kenney / artisticdude CC0 samples when loaded,
+ * plus a richer Web Audio chiptune fallback (and always for BGM).
+ * Toggle flags `bgmEnabled` / `sfxEnabled` stay authoritative.
+ */
 class SoundSystem {
-            constructor() {
-                this.ctx = null;
-                this.bgmEnabled = true;
-                this.sfxEnabled = true;
-                this.theme = 'overworld';
-                this.step = 0;
-                this.bgmInterval = null;
+    constructor() {
+        this.ctx = null;
+        this.bgmEnabled = true;
+        this.sfxEnabled = true;
+        this.theme = 'overworld';
+        this.step = 0;
+        this.bgmInterval = null;
+        this.buffers = new Map();
+        this._slashIdx = 0;
+        this.samplesReady = false;
+    }
+
+    init() {
+        if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    setTheme(newTheme) {
+        if (this.theme !== newTheme) {
+            this.theme = newTheme;
+            this.step = 0;
+        }
+    }
+
+    async preloadSamples() {
+        const catalog = [
+            // Kenney Interface Sounds (CC0)
+            ['ui_click', '/public/assets/kenney/sfx/click_001.ogg'],
+            ['ui_click2', '/public/assets/kenney/sfx/click_002.ogg'],
+            ['ui_confirm', '/public/assets/kenney/sfx/confirmation_001.ogg'],
+            ['ui_confirm2', '/public/assets/kenney/sfx/confirmation_002.ogg'],
+            ['ui_error', '/public/assets/kenney/sfx/error_001.ogg'],
+            ['ui_switch', '/public/assets/kenney/sfx/switch_001.ogg'],
+            ['ui_select', '/public/assets/kenney/sfx/select_001.ogg'],
+            ['ui_open', '/public/assets/kenney/sfx/open_001.ogg'],
+            ['ui_close', '/public/assets/kenney/sfx/close_001.ogg'],
+            ['ui_pluck', '/public/assets/kenney/sfx/pluck_001.ogg'],
+            ['ui_drop', '/public/assets/kenney/sfx/drop_001.ogg'],
+            ['ui_glass', '/public/assets/kenney/sfx/glass_001.ogg'],
+            // artisticdude RPG Sound Pack (CC0) — curated oggs
+            ['slash', '/public/assets/sfx/rpg/slash.ogg'],
+            ['slash2', '/public/assets/sfx/rpg/slash2.ogg'],
+            ['slash3', '/public/assets/sfx/rpg/slash3.ogg'],
+            ['unsheathe', '/public/assets/sfx/rpg/unsheathe.ogg'],
+            ['hit', '/public/assets/sfx/rpg/hit.ogg'],
+            ['hurt', '/public/assets/sfx/rpg/hurt.ogg'],
+            ['coin', '/public/assets/sfx/rpg/coin.ogg'],
+            ['coin2', '/public/assets/sfx/rpg/coin2.ogg'],
+            ['heal', '/public/assets/sfx/rpg/heal.ogg'],
+            ['bubble', '/public/assets/sfx/rpg/bubble.ogg'],
+            ['magic', '/public/assets/sfx/rpg/magic.ogg'],
+            ['door', '/public/assets/sfx/rpg/door.ogg'],
+            ['armor', '/public/assets/sfx/rpg/armor.ogg'],
+            ['ui1', '/public/assets/sfx/rpg/ui1.ogg'],
+        ];
+        this.init();
+        if (!this.ctx) return;
+        await Promise.all(catalog.map(async ([key, url]) => {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return;
+                const arr = await res.arrayBuffer();
+                const buf = await this.ctx.decodeAudioData(arr.slice(0));
+                this.buffers.set(key, buf);
+            } catch (e) {
+                console.warn(`[sfx] sample failed: ${key}`, e);
             }
-            init() {
-                if (!this.ctx) {
-                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    if (AudioCtx) this.ctx = new AudioCtx();
-                }
-                if (this.ctx && this.ctx.state === 'suspended') {
-                    this.ctx.resume();
-                }
+        }));
+        this.samplesReady = this.buffers.size > 0;
+    }
+
+    playBuffer(key, vol = 0.35, rate = 1) {
+        if (!this.sfxEnabled) return false;
+        this.init();
+        const buf = this.buffers.get(key);
+        if (!this.ctx || !buf) return false;
+        try {
+            const src = this.ctx.createBufferSource();
+            const gain = this.ctx.createGain();
+            src.buffer = buf;
+            src.playbackRate.value = rate;
+            gain.gain.value = vol;
+            src.connect(gain);
+            gain.connect(this.ctx.destination);
+            src.start();
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    playTone(freq, duration = 0.12, type = 'square', vol = 0.08, slideTo = null) {
+        if (!this.sfxEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+            const t0 = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(2200, t0);
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, t0);
+            if (slideTo != null) {
+                osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t0 + duration);
             }
-            setTheme(newTheme) {
-                if (this.theme !== newTheme) {
-                    this.theme = newTheme;
-                    this.step = 0;
-                }
-            }
-            playTone(freq, duration = 0.12, type = 'square', vol = 0.08) {
-                if (!this.sfxEnabled) return;
-                this.init();
-                if (!this.ctx) return;
+            gain.gain.setValueAtTime(vol, t0);
+            gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t0);
+            osc.stop(t0 + duration + 0.02);
+        } catch (e) {}
+    }
+
+    /** Layered noise burst for hits / splash (chiptune percussion). */
+    playNoise(duration = 0.1, vol = 0.06, color = 1800) {
+        if (!this.sfxEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+            const t0 = this.ctx.currentTime;
+            const len = Math.max(1, Math.floor(this.ctx.sampleRate * duration));
+            const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+            const src = this.ctx.createBufferSource();
+            const filter = this.ctx.createBiquadFilter();
+            const gain = this.ctx.createGain();
+            src.buffer = buffer;
+            filter.type = 'bandpass';
+            filter.frequency.value = color;
+            filter.Q.value = 0.8;
+            gain.gain.setValueAtTime(vol, t0);
+            gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+            src.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            src.start(t0);
+            src.stop(t0 + duration + 0.02);
+        } catch (e) {}
+    }
+
+    slash() {
+        const keys = ['slash', 'slash2', 'slash3'];
+        const key = keys[this._slashIdx++ % keys.length];
+        if (this.playBuffer(key, 0.32, 0.95 + Math.random() * 0.1)) return;
+        this.playTone(240, 0.07, 'sawtooth', 0.1, 90);
+        this.playNoise(0.06, 0.05, 1400);
+    }
+    arrow() {
+        if (this.playBuffer('ui_pluck', 0.28, 1.35)) {
+            this.playTone(720, 0.06, 'triangle', 0.05, 280);
+            return;
+        }
+        this.playTone(680, 0.05, 'triangle', 0.08, 220);
+        this.playTone(920, 0.04, 'square', 0.04);
+    }
+    hit() {
+        if (this.playBuffer('hit', 0.3)) return;
+        this.playTone(160, 0.1, 'square', 0.11, 70);
+        this.playNoise(0.08, 0.07, 900);
+    }
+    hurt() {
+        if (this.playBuffer('hurt', 0.34)) return;
+        this.playTone(110, 0.16, 'sawtooth', 0.12, 55);
+        this.playTone(70, 0.2, 'square', 0.07);
+    }
+    heal() {
+        if (this.playBuffer('heal', 0.28) || this.playBuffer('bubble', 0.26)) return;
+        this.playTone(523.25, 0.1, 'triangle', 0.09);
+        setTimeout(() => this.playTone(659.25, 0.12, 'triangle', 0.09), 80);
+        setTimeout(() => this.playTone(783.99, 0.14, 'sine', 0.07), 160);
+    }
+    unlock() {
+        if (this.playBuffer('ui_confirm', 0.28) || this.playBuffer('unsheathe', 0.26)) return;
+        this.playTone(440, 0.08, 'square', 0.09);
+        setTimeout(() => this.playTone(554.37, 0.08, 'square', 0.09), 80);
+        setTimeout(() => this.playTone(659.25, 0.16, 'square', 0.1), 160);
+    }
+    coin() {
+        if (this.playBuffer('coin', 0.28) || this.playBuffer('coin2', 0.24)) return;
+        this.playTone(784, 0.07, 'square', 0.08);
+        setTimeout(() => this.playTone(1046.5, 0.12, 'square', 0.08), 60);
+    }
+    splash() {
+        if (this.playBuffer('bubble', 0.3) || this.playBuffer('ui_glass', 0.25)) {
+            this.playNoise(0.12, 0.04, 600);
+            return;
+        }
+        this.playTone(200, 0.14, 'triangle', 0.08, 90);
+        this.playNoise(0.14, 0.06, 500);
+    }
+    laser() {
+        if (this.playBuffer('magic', 0.3)) return;
+        this.playTone(180, 0.28, 'sawtooth', 0.11, 40);
+        this.playTone(360, 0.22, 'square', 0.05, 80);
+    }
+    bossDrop() {
+        if (this.playBuffer('door', 0.35) || this.playBuffer('armor', 0.3)) return;
+        this.playTone(90, 0.3, 'sawtooth', 0.14, 40);
+        this.playNoise(0.25, 0.08, 300);
+    }
+
+    startBGM() {
+        if (this.bgmInterval) clearInterval(this.bgmInterval);
+        // Melody + simple bass/harmony for a denser chiptune bed.
+        const overworld = {
+            lead: [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 293.66, 349.23],
+            bass: [130.81, 130.81, 196.00, 196.00, 146.83, 146.83, 174.61, 174.61],
+        };
+        const village = {
+            lead: [329.63, 392.00, 440.00, 392.00, 349.23, 329.63, 293.66, 261.63],
+            bass: [164.81, 164.81, 196.00, 196.00, 174.61, 174.61, 146.83, 130.81],
+        };
+        const boss = {
+            lead: [110.00, 116.54, 110.00, 98.00, 110.00, 130.81, 123.47, 98.00],
+            bass: [55.00, 58.27, 55.00, 49.00, 55.00, 65.41, 61.74, 49.00],
+        };
+        this.bgmInterval = setInterval(() => {
+            if (!this.bgmEnabled || !this.ctx || this.ctx.state !== 'running') return;
+            const pack = this.theme === 'boss' ? boss : (this.theme === 'village' ? village : overworld);
+            const i = this.step % pack.lead.length;
+            this.step++;
+            const playVoice = (freq, type, vol, dur) => {
                 try {
                     const osc = this.ctx.createOscillator();
                     const gain = this.ctx.createGain();
                     osc.type = type;
                     osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
                     gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
                     osc.connect(gain);
                     gain.connect(this.ctx.destination);
                     osc.start();
-                    osc.stop(this.ctx.currentTime + duration);
+                    osc.stop(this.ctx.currentTime + dur + 0.02);
                 } catch (e) {}
+            };
+            const leadType = this.theme === 'boss' ? 'sawtooth' : 'triangle';
+            const leadVol = this.theme === 'boss' ? 0.04 : 0.028;
+            playVoice(pack.lead[i], leadType, leadVol, 0.24);
+            playVoice(pack.bass[i], 'square', this.theme === 'boss' ? 0.028 : 0.016, 0.22);
+            if (i % 2 === 0 && this.theme !== 'boss') {
+                playVoice(pack.lead[i] * 1.5, 'sine', 0.012, 0.18);
             }
-            slash() { this.playTone(210, 0.09, 'sawtooth', 0.09); }
-            arrow() { this.playTone(540, 0.08, 'triangle', 0.08); }
-            hit() { this.playTone(130, 0.12, 'square', 0.11); }
-            hurt() { this.playTone(95, 0.2, 'sawtooth', 0.12); }
-            heal() { this.playTone(523.25, 0.12, 'triangle', 0.09); setTimeout(() => this.playTone(659.25, 0.15, 'triangle', 0.09), 90); }
-            unlock() { this.playTone(440, 0.1, 'square', 0.09); setTimeout(() => this.playTone(554.37, 0.1, 'square', 0.09), 90); setTimeout(() => this.playTone(659.25, 0.18, 'square', 0.1), 180); }
-            coin() { this.playTone(784, 0.08, 'square', 0.08); setTimeout(() => this.playTone(1046.5, 0.14, 'square', 0.08), 70); }
-            splash() { this.playTone(180, 0.16, 'triangle', 0.09); }
-            laser() { this.playTone(150, 0.28, 'sawtooth', 0.12); }
-            bossDrop() { this.playTone(75, 0.35, 'sawtooth', 0.14); }
-
-            startBGM() {
-                if (this.bgmInterval) clearInterval(this.bgmInterval);
-                const overworldNotes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 293.66, 349.23];
-                const villageNotes = [329.63, 392.00, 440.00, 392.00, 349.23, 329.63, 293.66, 261.63];
-                const bossNotes = [110.00, 116.54, 110.00, 98.00, 110.00, 130.81, 123.47, 98.00];
-                this.bgmInterval = setInterval(() => {
-                    if (!this.bgmEnabled || !this.ctx || this.ctx.state !== 'running') return;
-                    const seq = this.theme === 'boss' ? bossNotes : (this.theme === 'village' ? villageNotes : overworldNotes);
-                    const freq = seq[this.step % seq.length];
-                    this.step++;
-                    try {
-                        const osc = this.ctx.createOscillator();
-                        const gain = this.ctx.createGain();
-                        osc.type = this.theme === 'boss' ? 'sawtooth' : 'triangle';
-                        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                        gain.gain.setValueAtTime(this.theme === 'boss' ? 0.045 : 0.03, this.ctx.currentTime);
-                        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.24);
-                        osc.connect(gain);
-                        gain.connect(this.ctx.destination);
-                        osc.start();
-                        osc.stop(this.ctx.currentTime + 0.25);
-                    } catch (e) {}
-                }, 280);
-            }
-        }
+        }, 280);
+    }
+}
 
 export const sfx = new SoundSystem();
 
@@ -218,22 +402,81 @@ export const CURATED_ASSETS = [
     { key: 'vfx_glint', url: `${ASSET_ROOT}/Elements/VFX/Glint/spr_deco_glint_01_strip6.png`, frames: 6 },
     { key: 'vfx_glint_b', url: `${ASSET_ROOT}/Elements/VFX/Glint/spr_deco_glint_02_strip4.png`, frames: 4 },
 
-    // UI icons
+    // UI icons — Sunnyside first
     { key: 'ui_sword', url: `${ASSET_ROOT}/UI/sword.png` },
     { key: 'ui_confirm', url: `${ASSET_ROOT}/UI/confirm.png` },
     { key: 'ui_cancel', url: `${ASSET_ROOT}/UI/cancel.png` },
     { key: 'ui_axe', url: `${ASSET_ROOT}/UI/axe.png` },
     { key: 'ui_hammer', url: `${ASSET_ROOT}/UI/hammer.png` },
+    { key: 'ui_pickaxe', url: `${ASSET_ROOT}/UI/pickaxe.png` },
+    { key: 'ui_shovel', url: `${ASSET_ROOT}/UI/shovel.png` },
     { key: 'ui_rod', url: `${ASSET_ROOT}/UI/rod.png` },
     { key: 'ui_rod_alt', url: `${ASSET_ROOT}/UI/rod alt.png` },
     { key: 'ui_plant', url: `${ASSET_ROOT}/UI/plant.png` },
     { key: 'ui_water', url: `${ASSET_ROOT}/UI/water.png` },
     { key: 'ui_basket', url: `${ASSET_ROOT}/UI/basket.png` },
+    { key: 'ui_search', url: `${ASSET_ROOT}/UI/search.png` },
     { key: 'ui_alert', url: `${ASSET_ROOT}/UI/expression_alerted.png` },
+    { key: 'ui_love', url: `${ASSET_ROOT}/UI/expression_love.png` },
+    { key: 'ui_chat', url: `${ASSET_ROOT}/UI/expression_chat.png` },
+    { key: 'ui_attack', url: `${ASSET_ROOT}/UI/expression_attack.png` },
+    { key: 'ui_playercount', url: `${ASSET_ROOT}/UI/playercount.png` },
     { key: 'ui_itemdisc', url: `${ASSET_ROOT}/UI/itemdisc_01.png` },
+    { key: 'ui_sandtimer', url: `${ASSET_ROOT}/UI/sandtimer.png` },
     { key: 'ui_redbar_full', url: `${ASSET_ROOT}/UI/redbar_06.png` },
     { key: 'ui_redbar_empty', url: `${ASSET_ROOT}/UI/redbar_00.png` },
+    { key: 'ui_happiness_full', url: `${ASSET_ROOT}/UI/happiness_01.png` },
+    { key: 'ui_happiness_empty', url: `${ASSET_ROOT}/UI/happiness_04.png` },
+
+    // Kenney Game Icons (CC0) — chrome / mute glyphs when Sunnyside has no match
+    // Absolute /public paths so icons still resolve if opened from a subpath.
+    { key: 'kenney_gear', url: '/public/assets/kenney/icons/gear.png' },
+    { key: 'kenney_music_on', url: '/public/assets/kenney/icons/musicOn.png' },
+    { key: 'kenney_music_off', url: '/public/assets/kenney/icons/musicOff.png' },
+    { key: 'kenney_audio_on', url: '/public/assets/kenney/icons/audioOn.png' },
+    { key: 'kenney_audio_off', url: '/public/assets/kenney/icons/audioOff.png' },
+    { key: 'kenney_star', url: '/public/assets/kenney/icons/star.png' },
+    { key: 'kenney_door', url: '/public/assets/kenney/icons/door.png' },
+    { key: 'kenney_exit', url: '/public/assets/kenney/icons/exitRight.png' },
+    { key: 'kenney_multi', url: '/public/assets/kenney/icons/multiplayer.png' },
+    { key: 'kenney_single', url: '/public/assets/kenney/icons/singleplayer.png' },
+    { key: 'kenney_save', url: '/public/assets/kenney/icons/save.png' },
+    { key: 'kenney_home', url: '/public/assets/kenney/icons/home.png' },
+    { key: 'kenney_trophy', url: '/public/assets/kenney/icons/trophy.png' },
+    { key: 'kenney_locked', url: '/public/assets/kenney/icons/locked.png' },
+    { key: 'kenney_unlocked', url: '/public/assets/kenney/icons/unlocked.png' },
+
+    // CC0 hearts strip (firehawk) — 4×16px frames in a 64×16 sheet
+    { key: 'cc0_hearts', url: '/public/assets/cc0/hearts.png', frames: 4 },
 ];
+
+/**
+ * DOM HUD slot → preferred asset key (Sunnyside first, then Kenney/CC0).
+ * Roles omitted here keep emoji (no good free glyph in the packs we staged).
+ * Gaps: true bow, true shield, pork chop, golden apple, dedicated fire claymore.
+ */
+export const UI_ICONS = {
+    sword: 'ui_sword',
+    claymore: 'ui_axe',          // closest Sunnyside tool glyph
+    wave: 'ui_water',
+    rod: 'ui_rod',
+    pork: 'item_egg',            // food stand-in
+    gapple: 'crop_pumpkin_5',    // golden fruit stand-in
+    coin: 'ui_itemdisc',
+    inv: 'ui_basket',
+    quests: 'ui_chat',
+    map: 'ui_search',
+    save: 'kenney_save',
+    settings: 'kenney_gear',
+    home: 'kenney_home',
+    multi: 'ui_playercount',
+    leave: 'kenney_door',
+    heart: 'ui_love',
+    heartEmpty: 'ui_happiness_empty',
+    yellowHeart: 'kenney_star',
+    bgm: 'kenney_music_on',
+    sfx: 'kenney_audio_on',
+};
 
 /** Crop kind → stage key prefix. Stages 0..5 match pack *_0N.png. */
 export const CROP_SPRITES = {
