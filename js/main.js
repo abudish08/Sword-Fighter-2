@@ -25,6 +25,7 @@ class Game {
         this.pendingNewSlotIndex = 0;
         this.pendingGender = 'male';
         this.pendingP2Gender = 'female';
+        this.pendingMultiplayer = false;
         this.isMultiplayer = false;
 
         this.keys = {};
@@ -218,9 +219,9 @@ class Game {
             }
 
             // PLAYER 2 CONTROLS (Left Screen in Multiplayer)
-            // Move: W,A,S,D | Sword: CapsLock | Bow: E | Pork: 2 | Golden Apple: 3
+            // Move: WASD | Sword: Space or CapsLock | Bow: E | Shield: Ctrl | Act: F | Fish: R | Pork: 2 | Apple: 3
             if (this.isMultiplayer) {
-                if (code === 'CapsLock') {
+                if (code === 'CapsLock' || code === 'Space') {
                     e.preventDefault();
                     this.swingSword(this.player2);
                 } else if (code === 'KeyE') {
@@ -235,6 +236,9 @@ class Game {
                 } else if (code === 'KeyF') {
                     e.preventDefault();
                     this.interact(this.player2);
+                } else if (code === 'KeyR') {
+                    e.preventDefault();
+                    this.castFishingRod(this.player2);
                 }
             } else {
                 // Singleplayer extra convenience shortcuts
@@ -261,7 +265,7 @@ class Game {
         window.addEventListener('keyup', (e) => {
             const code = e.code;
             this.keys[code] = false;
-            // On macOS/browsers where CapsLock toggles keyup on second press, also trigger P2 sword swing on keyup!
+            // CapsLock often only fires keyup on the second press — treat it as a sword tap for P2.
             if (this.isMultiplayer && code === 'CapsLock' && !this.activePuzzle) {
                 this.swingSword(this.player2);
             }
@@ -280,7 +284,9 @@ class Game {
         if (!document.getElementById('title-screen').classList.contains('hidden')) return;
         if (this.activePuzzle) return;
 
-        const shiftHeld = !!(this.keys['ShiftLeft'] || this.keys['ShiftRight']);
+        // Separate shields so co-op players don't force both heroes into block at once
+        const p1Shield = !!(this.keys['ShiftLeft'] || this.keys['ShiftRight']);
+        const p2Shield = !!(this.keys['ControlLeft'] || this.keys['ControlRight']);
 
         // Player 1 Movement
         let p1dx = 0, p1dy = 0;
@@ -288,7 +294,7 @@ class Game {
         if (this.keys['ArrowDown'] || (!this.isMultiplayer && this.keys['KeyS']) || this.touchDirs.down) p1dy += 1;
         if (this.keys['ArrowLeft'] || (!this.isMultiplayer && this.keys['KeyA']) || this.touchDirs.left) p1dx -= 1;
         if (this.keys['ArrowRight'] || (!this.isMultiplayer && this.keys['KeyD']) || this.touchDirs.right) p1dx += 1;
-        this.updateHero(this.player, p1dx, p1dy, shiftHeld, dt);
+        this.updateHero(this.player, p1dx, p1dy, p1Shield, dt);
 
         // Player 2 Movement in Multiplayer: W, A, S, D
         if (this.isMultiplayer) {
@@ -297,7 +303,7 @@ class Game {
             if (this.keys['KeyS']) p2dy += 1;
             if (this.keys['KeyA']) p2dx -= 1;
             if (this.keys['KeyD']) p2dx += 1;
-            this.updateHero(this.player2, p2dx, p2dy, shiftHeld, dt);
+            this.updateHero(this.player2, p2dx, p2dy, p2Shield, dt);
         }
 
         const activeHeroes = this.isMultiplayer ? [this.player, this.player2] : [this.player];
@@ -305,12 +311,23 @@ class Game {
         // Farm crop growth stages (wheat / carrot / pumpkin / sunflower)
         if (typeof this.updateCrops === 'function') this.updateCrops(dt);
 
-        // Dynamic BGM Theme switching
+        // Dynamic BGM / boss HUD — either hero can trigger shared world cues in co-op
         const tx1 = Math.floor(this.player.x / TILE);
         const ty1 = Math.floor(this.player.y / TILE);
-        const inFireBossRoom = tx1 >= 170 && tx1 <= 202 && ty1 >= 6 && ty1 <= 24 && !this.dungeonProgress.fireBossDefeated;
-        const inWaterBossRoom = tx1 >= 4 && tx1 <= 22 && ty1 >= 6 && ty1 <= 22 && !this.dungeonProgress.waterBossDefeated;
+        const tx2 = this.isMultiplayer ? Math.floor(this.player2.x / TILE) : tx1;
+        const ty2 = this.isMultiplayer ? Math.floor(this.player2.y / TILE) : ty1;
+        const heroInFireBoss = (tx, ty) => tx >= 170 && tx <= 202 && ty >= 6 && ty <= 24;
+        const heroInWaterBoss = (tx, ty) => tx >= 4 && tx <= 22 && ty >= 6 && ty <= 22;
+        const inFireBossRoom = !this.dungeonProgress.fireBossDefeated && (
+            heroInFireBoss(tx1, ty1) || heroInFireBoss(tx2, ty2)
+        );
+        const inWaterBossRoom = !this.dungeonProgress.waterBossDefeated && (
+            heroInWaterBoss(tx1, ty1) || heroInWaterBoss(tx2, ty2)
+        );
         const inBossFight = (this.boss.active && !this.dungeonProgress.bossDefeated) || inFireBossRoom || inWaterBossRoom;
+        const inVillage = (tx, ty) =>
+            (tx >= 52 && tx <= 81 && ty >= 47 && ty <= 75) ||
+            (tx >= 26 && tx <= 48 && ty >= 45 && ty <= 72);
 
         if (inFireBossRoom) {
             document.getElementById('boss-hud').classList.remove('hidden');
@@ -323,7 +340,7 @@ class Game {
         }
 
         if (inBossFight) sfx.setTheme('boss');
-        else if ((tx1 >= 52 && tx1 <= 81 && ty1 >= 47 && ty1 <= 75) || (tx1 >= 26 && tx1 <= 48 && ty1 >= 45 && ty1 <= 72)) sfx.setTheme('village');
+        else if (inVillage(tx1, ty1) || inVillage(tx2, ty2)) sfx.setTheme('village');
         else sfx.setTheme('overworld');
 
         // Fire Temple Small Fireball Turrets (deal 0.5 heart damage just like snakes & blobs!)
@@ -497,17 +514,32 @@ class Game {
             if (ft.life <= 0) this.floatingTexts.splice(i, 1);
         }
 
-        const near = this.getNearestInteractable(this.player) || (this.isMultiplayer ? this.getNearestInteractable(this.player2) : null);
+        const nearP1 = this.getNearestInteractable(this.player);
+        const nearP2 = this.isMultiplayer ? this.getNearestInteractable(this.player2) : null;
+        const near = nearP1 || nearP2;
         const promptEl = document.getElementById('interact-prompt');
+        const promptKey = document.getElementById('interact-key-hint');
         if (near) {
             promptEl.classList.remove('hidden');
             document.getElementById('interact-text').textContent = near.label;
+            if (promptKey) {
+                if (this.isMultiplayer && nearP1 && nearP2) promptKey.textContent = '[Q]/ / [F]';
+                else if (this.isMultiplayer && nearP2 && !nearP1) promptKey.textContent = '[F] P2';
+                else promptKey.textContent = this.isMultiplayer ? '[Q] P1' : '[Q]';
+            }
         } else {
             promptEl.classList.add('hidden');
         }
 
-        document.getElementById('hud-coords').textContent = `(${tx1}, ${ty1})`;
-        document.getElementById('hud-zone').textContent = this.getZoneName(tx1, ty1);
+        if (this.isMultiplayer) {
+            document.getElementById('hud-coords').textContent = `P1 (${tx1},${ty1}) · P2 (${tx2},${ty2})`;
+            const z1 = this.getZoneName(tx1, ty1);
+            const z2 = this.getZoneName(tx2, ty2);
+            document.getElementById('hud-zone').textContent = z1 === z2 ? z1 : `P1: ${z1}  |  P2: ${z2}`;
+        } else {
+            document.getElementById('hud-coords').textContent = `(${tx1}, ${ty1})`;
+            document.getElementById('hud-zone').textContent = this.getZoneName(tx1, ty1);
+        }
     }
 
     loop(now) {

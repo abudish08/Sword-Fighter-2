@@ -98,14 +98,16 @@
 
     <!-- ==================== TOP HUD BAR ==================== -->
     <header class="w-full bg-slate-900/95 border-b-2 border-amber-500/80 px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 z-20 shrink-0 shadow-lg">
-        <!-- Left: Hearts, Level, Coins & Zone -->
+        <!-- Left: Hearts (per-player in 2P), Level, Coins & Zone -->
         <div class="flex items-center gap-3 flex-wrap">
             <div class="flex flex-col">
-                <div class="flex items-center gap-1.5">
-                    <span id="ui-hud-life" class="text-xs font-extrabold text-amber-400 tracking-wider">P1 LIFE</span>
-                    <div id="hearts-container" class="flex items-center gap-0.5"></div>
-                    <div id="p2-hud-pill" class="hidden ml-2 pl-2 border-l border-slate-600 flex items-center gap-1">
-                        <span class="text-xs font-extrabold text-sky-400">P2 LIFE</span>
+                <div id="hud-life-row" class="flex items-stretch gap-2 flex-wrap">
+                    <div class="hud-life-block hud-life-p1 flex items-center gap-1.5 px-1.5 py-0.5 border border-amber-500/70 bg-slate-950/60">
+                        <span id="ui-hud-life" class="text-xs font-extrabold text-amber-400 tracking-wider">P1</span>
+                        <div id="hearts-container" class="flex items-center gap-0.5"></div>
+                    </div>
+                    <div id="p2-hud-pill" class="hidden flex hud-life-block hud-life-p2 items-center gap-1.5 px-1.5 py-0.5 border border-sky-400/80 bg-slate-950/60">
+                        <span class="text-xs font-extrabold text-sky-400 tracking-wider">P2</span>
                         <div id="p2-hearts-container" class="flex items-center gap-0.5"></div>
                     </div>
                 </div>
@@ -113,7 +115,7 @@
                     <span id="hud-level" class="px-2 py-0.5 bg-emerald-900/90 border border-emerald-400 rounded-md text-xs font-bold text-emerald-200">LVL 0</span>
                     <span id="hud-armor" class="px-2 py-0.5 bg-sky-900/90 border border-sky-400 rounded-md text-xs font-bold text-sky-200">ARMOR LVL 1</span>
                     <span class="px-2 py-0.5 bg-amber-900/90 border border-amber-400 rounded-md text-xs font-bold text-amber-200">🪙 <span id="hud-coins">25</span></span>
-                    <span id="hud-zone" class="px-2 py-0.5 bg-purple-900/90 border border-purple-400 rounded-md text-xs font-bold text-purple-200">Starting Meadow</span>
+                    <span id="hud-zone" class="px-2 py-0.5 bg-purple-900/90 border border-purple-400 rounded-md text-xs font-bold text-purple-200 max-w-[28rem] truncate" title="">Starting Meadow</span>
                 </div>
             </div>
         </div>
@@ -130,10 +132,10 @@
             </button>
 
             <!-- Separate Fire Claymore Slot (Does NOT replace Iron Sword!) -->
-            <button onclick="game.toggleEquipFireClaymore(game.player)" id="slot-fire-claymore" class="flex items-center gap-1.5 bg-slate-900 border-2 border-slate-700 opacity-55 px-2 py-1 transition" title="Press [2] or click to equip/unequip the Giant Fire Claymore (12 DMG, Slow, Huge Reach)">
+            <button onclick="game.toggleEquipFireClaymore(game.player)" id="slot-fire-claymore" class="flex items-center gap-1.5 bg-slate-900 border-2 border-slate-700 opacity-55 px-2 py-1 transition" title="Press [2] (1P) or [B] to equip/unequip the Giant Fire Claymore (12 DMG, Slow, Huge Reach)">
                 <span class="text-lg">🔥</span>
                 <div class="leading-tight text-left">
-                    <div class="text-xs font-bold text-orange-400">Fire Claymore [2]</div>
+                    <div id="claymore-name" class="text-xs font-bold text-orange-400">Fire Claymore [2]</div>
                     <div id="claymore-status-label" class="text-[11px] text-slate-400">Locked (Volcano)</div>
                 </div>
             </button>
@@ -143,7 +145,7 @@
                 <span class="text-lg">🛡️</span>
                 <div class="leading-tight">
                     <div class="text-xs font-bold text-cyan-300">Shield</div>
-                    <div class="text-[11px] text-slate-300">Hold [SHIFT]</div>
+                    <div id="shield-key-label" class="text-[11px] text-slate-300">Hold [SHIFT]</div>
                 </div>
             </div>
 
@@ -152,7 +154,7 @@
                 <span class="text-lg" id="bow-icon">🏹</span>
                 <div class="leading-tight text-left">
                     <div class="text-xs font-bold text-emerald-300"><span id="ui-hud-bow">Bow</span>: <span id="hud-arrows">0</span></div>
-                    <div id="bow-status" class="text-[11px] text-slate-400">P1:[P] P2:[E]</div>
+                    <div id="bow-status" class="text-[11px] text-slate-400">[P] Shoot</div>
                 </div>
             </button>
 
@@ -166,11 +168,11 @@
             </button>
 
             <!-- Fishing Rod -->
-            <button onclick="game.castFishingRod(game.player)" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border-2 border-sky-400 px-2 py-1 transition" title="Press C near water to Fish">
+            <button onclick="game.castFishingRod(game.player)" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border-2 border-sky-400 px-2 py-1 transition" title="P1: C near water | P2: R near water">
                 <span class="text-lg">🎣</span>
                 <div class="leading-tight text-left">
                     <div class="text-xs font-bold text-sky-300" id="ui-hud-fish">Fish Rod</div>
-                    <div class="text-[11px] text-slate-300">[C] Wait & Reel</div>
+                    <div id="fish-key-label" class="text-[11px] text-slate-300">[C] Wait & Reel</div>
                 </div>
             </button>
 
@@ -179,7 +181,7 @@
                 <span class="text-lg">🥩</span>
                 <div class="leading-tight text-left">
                     <div class="text-xs font-bold text-rose-300"><span id="ui-hud-pork">Pork</span>: <span id="hud-pork">10</span></div>
-                    <div class="text-[11px] text-slate-300">P1:[9/L] P2:[2]</div>
+                    <div id="pork-key-label" class="text-[11px] text-slate-300">[9/L] Eat</div>
                 </div>
             </button>
 
@@ -188,7 +190,7 @@
                 <span class="text-lg">🍎</span>
                 <div class="leading-tight text-left">
                     <div class="text-xs font-bold text-yellow-300">G.Apple: <span id="hud-gapples">0</span></div>
-                    <div class="text-[11px] text-slate-300">P1:[0] P2:[3]</div>
+                    <div id="gapple-key-label" class="text-[11px] text-slate-300">[0] Eat</div>
                 </div>
             </button>
         </div>
@@ -231,32 +233,47 @@
             </div>
         </div>
 
-        <!-- LEFT MINI TRACKER -->
-        <div class="absolute top-3 left-3 w-60 sm:w-68 pointer-events-auto z-10 flex flex-col gap-2">
+        <!-- LEFT MINI TRACKER (compact + collapsed by default in 2P so P2 viewport stays clear) -->
+        <div id="quest-tracker-panel" class="absolute top-3 left-3 w-60 sm:w-68 pointer-events-auto z-10 flex flex-col gap-2">
             <div class="hd-panel p-2.5">
                 <div class="flex justify-between items-center border-b border-amber-500/40 pb-1 mb-1.5">
                     <span class="title-font text-xs font-bold text-amber-400" id="ui-tracker-title">📜 ACTIVE NOTES</span>
-                    <button onclick="document.getElementById('quest-body').classList.toggle('hidden')" class="text-xs text-slate-300 hover:text-white px-1">[_]</button>
+                    <button onclick="document.getElementById('quest-body').classList.toggle('hidden')" class="text-xs text-slate-300 hover:text-white px-1" title="Collapse/expand">[_]</button>
                 </div>
                 <div id="quest-body" class="text-xs space-y-1 max-h-48 overflow-y-auto pr-1 leading-snug"></div>
             </div>
         </div>
 
+        <!-- Shared 2P control legend (hidden in 1P) -->
+        <div id="mp-controls-legend" class="hidden absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none max-w-[95vw]">
+            <div class="hd-panel px-3 py-1.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] sm:text-xs border-sky-400/70">
+                <span class="text-amber-300 font-bold">P1 RIGHT:</span>
+                <span class="text-slate-200">Arrows · Enter · P · Shift · Q · C · 9/0</span>
+                <span class="text-slate-500">|</span>
+                <span class="text-sky-300 font-bold">P2 LEFT:</span>
+                <span class="text-slate-200">WASD · Space · E · Ctrl · F · R · 2/3</span>
+            </div>
+        </div>
+
         <!-- RIGHT MINIMAP & FLAG TELEPORT PREVIEW -->
-        <div class="absolute top-3 right-3 flex flex-col items-end gap-2 z-10">
+        <div id="radar-panel" class="absolute top-3 right-3 flex flex-col items-end gap-2 z-10">
             <div class="hd-panel p-2 flex flex-col items-center">
-                <div class="flex justify-between w-full items-center mb-1 px-0.5">
+                <div class="flex justify-between w-full items-center mb-1 px-0.5 gap-2">
                     <span class="title-font text-[10px] font-bold text-amber-400">RADAR</span>
                     <span id="hud-coords" class="text-[11px] text-slate-300 font-mono">(0, 0)</span>
                 </div>
                 <canvas id="minimapCanvas" width="144" height="112" onclick="game.toggleWorldMapModal()" class="border border-slate-600 rounded-lg bg-slate-950 cursor-pointer" title="Click to open Fast-Travel Flag Map"></canvas>
+                <div id="minimap-legend" class="hidden w-full mt-1 text-[10px] text-slate-300 flex justify-between px-0.5">
+                    <span class="text-amber-300">■ P1</span>
+                    <span class="text-sky-300">■ P2</span>
+                </div>
                 <span class="text-[10px] text-amber-300 mt-1 cursor-pointer hover:underline" onclick="game.toggleWorldMapModal()">🚩 Click Map to Fast Travel</span>
             </div>
         </div>
 
         <!-- INTERACTION CONTEXT PROMPT -->
         <div id="interact-prompt" class="hidden absolute bottom-20 left-1/2 -translate-x-1/2 hd-panel px-4 py-2 flex items-center gap-3 z-10">
-            <span class="text-xs font-extrabold text-amber-300 animate-pulse">[Q]</span>
+            <span id="interact-key-hint" class="text-xs font-extrabold text-amber-300 animate-pulse">[Q]</span>
             <span id="interact-text" class="text-sm sm:text-base font-bold text-white">Inspect</span>
             <button onclick="game.interact()" class="hd-btn px-3 py-1 text-xs">ACT</button>
         </div>

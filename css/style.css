@@ -70,3 +70,47 @@
         ::-webkit-scrollbar { width: 10px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #f59e0b; }
+
+        /* Local multiplayer / split-screen layout polish */
+        body.mp-active #quest-tracker-panel {
+            top: auto;
+            bottom: 3.25rem;
+            left: 0.75rem;
+            width: min(16rem, 42vw);
+            opacity: 0.92;
+        }
+        body.mp-active #quest-tracker-panel .hd-panel {
+            border-color: #38bdf8;
+            padding: 0.4rem 0.55rem;
+        }
+        body.mp-active #quest-body {
+            max-height: 5.5rem;
+        }
+        body.mp-active #radar-panel {
+            top: 0.55rem;
+            right: 0.55rem;
+            transform: scale(0.9);
+            transform-origin: top right;
+        }
+        body.mp-active #boss-hud {
+            top: 0.4rem;
+            max-width: 22rem;
+        }
+        body.mp-active #mp-controls-legend {
+            display: flex !important;
+        }
+        body.mp-active #minimap-legend {
+            display: flex !important;
+        }
+        body.mp-active #hud-zone {
+            max-width: min(36rem, 55vw);
+        }
+        body.mp-active .hud-life-p1 {
+            box-shadow: inset 3px 0 0 #f59e0b;
+        }
+        body.mp-active .hud-life-p2 {
+            box-shadow: inset 3px 0 0 #38bdf8;
+        }
+        body.mp-active #interact-prompt {
+            bottom: 4.75rem;
+        }

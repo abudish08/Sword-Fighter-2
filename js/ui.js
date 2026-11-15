@@ -118,10 +118,40 @@ export const uiMethods = {
       this.showToast("💾 Game saved to this browser! Use Continue on the title screen to load it.");
   },
 
+  applyMultiplayerLayout(multiplayer) {
+      document.body.classList.toggle('mp-active', !!multiplayer);
+      const p2Hud = document.getElementById('p2-hud-pill');
+      if (p2Hud) p2Hud.classList.toggle('hidden', !multiplayer);
+      const legend = document.getElementById('mp-controls-legend');
+      if (legend) legend.classList.toggle('hidden', !multiplayer);
+      const mapLegend = document.getElementById('minimap-legend');
+      if (mapLegend) mapLegend.classList.toggle('hidden', !multiplayer);
+      const questBody = document.getElementById('quest-body');
+      // Keep quest notes collapsed in 2P so the left viewport stays playable
+      if (questBody) questBody.classList.toggle('hidden', !!multiplayer);
+      const claymoreName = document.getElementById('claymore-name');
+      if (claymoreName) claymoreName.textContent = multiplayer ? 'Fire Claymore [B]' : 'Fire Claymore [2]';
+      const shieldLbl = document.getElementById('shield-key-label');
+      if (shieldLbl) shieldLbl.textContent = multiplayer ? 'P1:Shift · P2:Ctrl' : 'Hold [SHIFT]';
+      const fishLbl = document.getElementById('fish-key-label');
+      if (fishLbl) fishLbl.textContent = multiplayer ? 'P1:[C] P2:[R]' : '[C] Wait & Reel';
+      const bowLbl = document.getElementById('bow-status');
+      if (bowLbl && !this.player?.hasIceTripleBow) {
+          bowLbl.textContent = multiplayer ? 'P1:[P] P2:[E]' : '[P] Shoot';
+      }
+      const porkLbl = document.getElementById('pork-key-label');
+      if (porkLbl) porkLbl.textContent = multiplayer ? 'P1:[9/L] P2:[2]' : '[9/L] Eat';
+      const gappleLbl = document.getElementById('gapple-key-label');
+      if (gappleLbl) gappleLbl.textContent = multiplayer ? 'P1:[0] P2:[3]' : '[0] Eat';
+      const lifeLabel = document.getElementById('ui-hud-life');
+      if (lifeLabel) lifeLabel.textContent = multiplayer ? 'P1' : 'P1 LIFE';
+  },
+
   openPlayMenu(multiplayer = false) {
       sfx.init();
-      this.isMultiplayer = multiplayer;
-      document.getElementById('p2-hud-pill').classList.toggle('hidden', !multiplayer);
+      this.pendingMultiplayer = !!multiplayer;
+      this.isMultiplayer = !!multiplayer;
+      this.applyMultiplayerLayout(multiplayer);
       const p2Box = document.getElementById('p2-newgame-picker-box');
       if (p2Box) p2Box.classList.toggle('hidden', !multiplayer);
       document.getElementById('title-main-view').classList.add('hidden');
@@ -134,6 +164,10 @@ export const uiMethods = {
   backToTitleMain() {
       document.getElementById('title-play-view').classList.add('hidden');
       document.getElementById('title-main-view').classList.remove('hidden');
+      // Leaving the play submenu without launching should not leave 2P HUD chrome on
+      this.pendingMultiplayer = false;
+      this.isMultiplayer = false;
+      this.applyMultiplayerLayout(false);
   },
 
   showSlotTab(mode) {
@@ -263,6 +297,8 @@ export const uiMethods = {
 
   confirmStartNewGame() {
       this.activeSlotIndex = this.pendingNewSlotIndex;
+      this.isMultiplayer = !!this.pendingMultiplayer;
+      this.applyMultiplayerLayout(this.isMultiplayer);
       this.initDefaultState();
       this.player.gender = this.pendingGender;
       this.player2.gender = this.pendingP2Gender;
@@ -283,6 +319,8 @@ export const uiMethods = {
       const data = this.saves[slotIdx];
       if (!data) return;
       this.activeSlotIndex = slotIdx;
+      this.isMultiplayer = !!this.pendingMultiplayer;
+      this.applyMultiplayerLayout(this.isMultiplayer);
       this.initDefaultState();
       Object.assign(this.player, data.player);
       if (data.player2) Object.assign(this.player2, data.player2);
@@ -327,6 +365,8 @@ export const uiMethods = {
 
   returnToTitleScreen() {
       this.saveCurrentWorld();
+      this.isMultiplayer = false;
+      this.applyMultiplayerLayout(false);
       document.getElementById('title-screen').classList.remove('hidden');
       this.backToTitleMain();
   },
@@ -1122,6 +1162,24 @@ export const uiMethods = {
       document.getElementById('hud-pork').textContent = this.player.pork;
       document.getElementById('hud-gapples').textContent = this.player.goldenApples;
       document.getElementById('hud-arrows').textContent = this.player.arrows;
+
+      // Keep 2P binding labels honest even if HUD refreshes mid-run
+      const claymoreName = document.getElementById('claymore-name');
+      if (claymoreName) claymoreName.textContent = this.isMultiplayer ? 'Fire Claymore [B]' : 'Fire Claymore [2]';
+      const shieldLbl = document.getElementById('shield-key-label');
+      if (shieldLbl) shieldLbl.textContent = this.isMultiplayer ? 'P1:Shift · P2:Ctrl' : 'Hold [SHIFT]';
+      const fishLbl = document.getElementById('fish-key-label');
+      if (fishLbl) fishLbl.textContent = this.isMultiplayer ? 'P1:[C] P2:[R]' : '[C] Wait & Reel';
+      const bowLbl = document.getElementById('bow-status');
+      if (bowLbl && !this.player.hasIceTripleBow) {
+          bowLbl.textContent = this.isMultiplayer ? 'P1:[P] P2:[E]' : '[P] Shoot';
+      }
+      const porkLbl = document.getElementById('pork-key-label');
+      if (porkLbl) porkLbl.textContent = this.isMultiplayer ? 'P1:[9/L] P2:[2]' : '[9/L] Eat';
+      const gappleLbl = document.getElementById('gapple-key-label');
+      if (gappleLbl) gappleLbl.textContent = this.isMultiplayer ? 'P1:[0] P2:[3]' : '[0] Eat';
+      const zoneEl = document.getElementById('hud-zone');
+      if (zoneEl) zoneEl.title = zoneEl.textContent || '';
 
       // Regular Sword Slot
       const mainSwordSlot = document.getElementById('slot-main-sword');

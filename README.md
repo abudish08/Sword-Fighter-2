@@ -43,14 +43,18 @@ Or any other static server (VS Code Live Server, `npx serve`, etc.).
 | Map / Fast Travel   | M            |
 
 ### Player 2 (Left side in multiplayer)
-| Action         | Key       |
-|----------------|-----------|
-| Move           | W A S D   |
-| Sword / Attack | Caps Lock |
-| Bow            | E         |
-| Interact       | F         |
-| Eat Pork       | 2         |
-| Golden Apple   | 3         |
+| Action         | Key                    |
+|----------------|------------------------|
+| Move           | W A S D                |
+| Sword / Attack | Space (or Caps Lock)   |
+| Bow            | E                      |
+| Shield (hold)  | Ctrl                   |
+| Interact       | F                      |
+| Fish           | R                      |
+| Eat Pork       | 2                      |
+| Golden Apple   | 3                      |
+
+In 2P, Fire Claymore is **[B]** (not `2`, which is P2 pork). Inventory / quests / map / save stay shared.
 
 ### Shared
 - **Settings**: Gear icon or title screen
