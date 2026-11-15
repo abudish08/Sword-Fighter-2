@@ -184,6 +184,9 @@ export const worldMethods = {
       this.npcs = [];
       this.projectiles = [];
       this.floatingTexts = [];
+      this.particles = [];
+      this.camStates = {};
+      this.screenFlashes = { P1: 0, P2: 0 };
       this.lootDrops = [];
       this.visitedChunks.clear();
 
@@ -991,20 +994,43 @@ export const worldMethods = {
       this.drawMinimap();
   },
 
+  ensureCamState(heroId) {
+      if (!this.camStates) this.camStates = {};
+      if (!this.camStates[heroId]) {
+          this.camStates[heroId] = { x: null, y: null, shake: 0, punchX: 0, punchY: 0 };
+      }
+      return this.camStates[heroId];
+  },
+
   renderViewport(ctx, focusHero, vpX, vpY, vpW, vpH, bannerText) {
       ctx.save();
       ctx.beginPath();
       ctx.rect(vpX, vpY, vpW, vpH);
       ctx.clip();
 
-      const camX = Math.floor(focusHero.x - (vpX + vpW / 2));
-      const camY = Math.floor(focusHero.y - (vpY + vpH / 2));
+      const cam = this.ensureCamState(focusHero.id);
+      const targetCamX = focusHero.x - (vpX + vpW / 2);
+      const targetCamY = focusHero.y - (vpY + vpH / 2);
+      if (cam.x == null || cam.y == null) {
+          cam.x = targetCamX;
+          cam.y = targetCamY;
+      } else {
+          // Soft follow — snappy enough for combat, smooth enough to feel polished.
+          const follow = Math.min(1, 11 * (this._lastDt || 0.016));
+          cam.x += (targetCamX - cam.x) * follow;
+          cam.y += (targetCamY - cam.y) * follow;
+      }
+      const shakeAmt = cam.shake || 0;
+      const shakeX = shakeAmt > 0 ? (Math.random() - 0.5) * 2 * shakeAmt : 0;
+      const shakeY = shakeAmt > 0 ? (Math.random() - 0.5) * 2 * shakeAmt : 0;
+      const camX = Math.floor(cam.x + (cam.punchX || 0) + shakeX);
+      const camY = Math.floor(cam.y + (cam.punchY || 0) + shakeY);
 
       ctx.save();
       ctx.translate(-camX, -camY);
 
-      const leftWorld = focusHero.x - vpW / 2;
-      const topWorld = focusHero.y - vpH / 2;
+      const leftWorld = camX + vpX;
+      const topWorld = camY + vpY;
       const startCol = Math.floor(leftWorld / TILE) - 1;
       const endCol = Math.ceil((leftWorld + vpW) / TILE) + 1;
       const startRow = Math.floor(topWorld / TILE) - 1;
@@ -1433,14 +1459,52 @@ export const worldMethods = {
           ctx.restore();
       }
 
-      // 12. Floating Texts
+      // 12. Hit / pickup particles (world-space)
+      if (this.particles && this.particles.length) {
+          for (const p of this.particles) {
+              if (p.x + 40 < leftWorld || p.x - 40 > leftWorld + vpW || p.y + 40 < topWorld || p.y - 40 > topWorld + vpH) continue;
+              const t = Math.max(0, p.life / (p.maxLife || 0.4));
+              ctx.save();
+              ctx.globalAlpha = Math.min(1, t * 1.2);
+              if (p.kind === 'ring') {
+                  const r = Math.floor((1 - t) * 28 + (p.size || 8));
+                  ctx.strokeStyle = p.color || '#fda4af';
+                  ctx.lineWidth = 2;
+                  ctx.strokeRect(Math.floor(p.x - r / 2), Math.floor(p.y - r / 2), r, r);
+              } else {
+                  ctx.fillStyle = p.color || '#f87171';
+                  const s = Math.max(1, Math.floor((p.size || 3) * (0.5 + t * 0.5)));
+                  ctx.fillRect(Math.floor(p.x - s / 2), Math.floor(p.y - s / 2), s, s);
+              }
+              ctx.restore();
+          }
+      }
+
+      // 13. Floating Texts (kill pops use larger type)
       for (const ft of this.floatingTexts) {
+          const scale = ft.scale || 1;
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, ft.life * 1.4);
           ctx.fillStyle = ft.color;
-          ctx.font = 'bold 16px VT323';
-          ctx.fillText(ft.text, Math.floor(ft.x - 24), Math.floor(ft.y));
+          ctx.font = `bold ${Math.floor(16 * scale)}px VT323`;
+          ctx.fillText(ft.text, Math.floor(ft.x - 24 * scale), Math.floor(ft.y));
+          ctx.restore();
       }
 
       ctx.restore();
+
+      // Viewport-local damage flash (no HUD clutter)
+      const flash = (this.screenFlashes && this.screenFlashes[focusHero.id]) || 0;
+      if (flash > 0) {
+          const a = Math.min(0.42, flash * 1.5);
+          ctx.fillStyle = `rgba(220, 38, 38, ${a})`;
+          ctx.fillRect(vpX, vpY, vpW, vpH);
+          ctx.fillStyle = `rgba(127, 29, 29, ${a * 0.55})`;
+          ctx.fillRect(vpX, vpY, vpW, 10);
+          ctx.fillRect(vpX, vpY + vpH - 10, vpW, 10);
+          ctx.fillRect(vpX, vpY, 10, vpH);
+          ctx.fillRect(vpX + vpW - 10, vpY, 10, vpH);
+      }
 
       if (bannerText) {
           const accent = (typeof bannerText === 'object' && bannerText.accent)

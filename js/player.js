@@ -358,6 +358,8 @@ export const playerMethods = {
       if (actor.shielding) {
           actor.invulnTimer = 0.45;
           sfx.hit();
+          this.spawnHitImpact(actor.x, actor.y - 8, 'arrow');
+          this.addCameraPunch(actor.id || 'P1', 3);
           this.addFloatingText(actor.x, actor.y - 20, "🛡️ BLOCKED!", "#38bdf8");
           return;
       }
@@ -377,13 +379,20 @@ export const playerMethods = {
           actor.hp = Math.max(0, actor.hp - remaining);
       }
 
-      this.addFloatingText(actor.x, actor.y - 18, `-${amount}❤️ (${sourceName})`, "#ef4444");
+      this.triggerDamageFlash(actor.id || 'P1');
+      this.addCameraPunch(actor.id || 'P1', 7);
+      this.spawnHitImpact(actor.x, actor.y, 'sword');
+      this.addFloatingText(actor.x, actor.y - 18, `-${amount}❤️ (${sourceName})`, "#ef4444", { scale: 1.1 });
       this.updateHUD();
 
       if (actor.hp <= 0) {
           actor.hp = actor.maxHp;
           actor.x = 92 * TILE;
           actor.y = 66 * TILE;
+          // Snap camera after respawn so smooth-follow doesn't lag across the map
+          const cam = this.ensureCamState(actor.id || 'P1');
+          cam.x = null;
+          cam.y = null;
           this.showToast(`💫 ${actor.id} fainted against ${sourceName}! Respawned at Starting Meadow with full Red Hearts.`);
           this.updateHUD();
       }
@@ -401,7 +410,8 @@ export const playerMethods = {
       this.player.pork--;
       actor.hp = Math.min(actor.maxHp, actor.hp + 1.0);
       sfx.heal();
-      this.addFloatingText(actor.x, actor.y - 20, "+1 ❤️ PORK", "#fb7185");
+      this.spawnPickupCue(actor.x, actor.y - 10, '#fb7185');
+      this.addFloatingText(actor.x, actor.y - 20, "+1 ❤️ PORK", "#fb7185", { scale: 1.15 });
       this.updateHUD();
   },
 
@@ -413,7 +423,8 @@ export const playerMethods = {
       this.player.goldenApples--;
       actor.yellowHp += 1.0;
       sfx.heal();
-      this.addFloatingText(actor.x, actor.y - 20, "+1 💛 TEMP HEART!", "#facc15");
+      this.spawnPickupCue(actor.x, actor.y - 10, '#facc15');
+      this.addFloatingText(actor.x, actor.y - 20, "+1 💛 TEMP HEART!", "#facc15", { scale: 1.2 });
       this.showToast(`🍎 ${actor.id} ate a Golden Apple and gained +1 Temporary Yellow Heart!`);
       this.updateHUD();
   },
