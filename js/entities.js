@@ -6,6 +6,111 @@ import { sfx, assets } from './assets.js';
 import { TILE } from './world.js';
 
 export const entityMethods = {
+  /**
+   * GAME FEEL: particles, camera punch, damage flash, kill/pickup pops.
+   * Kept lightweight and HUD-free so 1P + split-screen stay readable.
+   */
+  spawnParticles(x, y, opts = {}) {
+      if (!this.particles) this.particles = [];
+      const count = opts.count ?? 8;
+      const color = opts.color || '#f87171';
+      const speed = opts.speed ?? 140;
+      const life = opts.life ?? 0.42;
+      const size = opts.size ?? 3;
+      const kind = opts.kind || 'spark';
+      for (let i = 0; i < count; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = speed * (0.35 + Math.random() * 0.85);
+          this.particles.push({
+              x, y,
+              vx: Math.cos(ang) * spd,
+              vy: Math.sin(ang) * spd - (kind === 'spark' ? 30 : 0),
+              life,
+              maxLife: life,
+              size: size + Math.floor(Math.random() * 2),
+              color,
+              kind
+          });
+      }
+  },
+
+  spawnHitImpact(x, y, attackKind = 'sword') {
+      const color = attackKind === 'fire_claymore' ? '#f97316'
+          : attackKind === 'ice_arrow' ? '#7dd3fc'
+          : attackKind === 'arrow' ? '#fbbf24'
+          : '#fda4af';
+      this.spawnParticles(x, y, { count: 9, color, speed: 170, life: 0.38, size: 3 });
+      if (!this.particles) this.particles = [];
+      this.particles.push({
+          x, y, vx: 0, vy: 0,
+          life: 0.2, maxLife: 0.2,
+          size: 10, color, kind: 'ring'
+      });
+  },
+
+  spawnKillPop(x, y) {
+      this.spawnParticles(x, y, { count: 14, color: '#facc15', speed: 210, life: 0.55, size: 4 });
+      this.spawnParticles(x, y, { count: 8, color: '#f87171', speed: 150, life: 0.45, size: 3 });
+      this.addFloatingText(x, y - 30, 'DEFEATED!', '#facc15', { scale: 1.45, life: 1.35, rise: 40 });
+  },
+
+  spawnPickupCue(x, y, color = '#4ade80') {
+      this.spawnParticles(x, y, { count: 11, color, speed: 95, life: 0.55, size: 3 });
+      if (!this.particles) this.particles = [];
+      this.particles.push({
+          x, y, vx: 0, vy: -55,
+          life: 0.45, maxLife: 0.45,
+          size: 12, color, kind: 'ring'
+      });
+  },
+
+  addCameraPunch(heroId, amount = 5, dirX = 0, dirY = 0) {
+      const cam = this.ensureCamState(heroId || 'P1');
+      cam.shake = Math.max(cam.shake || 0, amount);
+      if (dirX || dirY) {
+          const len = Math.hypot(dirX, dirY) || 1;
+          cam.punchX = (cam.punchX || 0) + (dirX / len) * amount * 0.85;
+          cam.punchY = (cam.punchY || 0) + (dirY / len) * amount * 0.85;
+      } else {
+          cam.punchX = (cam.punchX || 0) + (Math.random() - 0.5) * amount;
+          cam.punchY = (cam.punchY || 0) + (Math.random() - 0.5) * amount;
+      }
+  },
+
+  triggerDamageFlash(heroId) {
+      if (!this.screenFlashes) this.screenFlashes = { P1: 0, P2: 0 };
+      this.screenFlashes[heroId || 'P1'] = 0.3;
+  },
+
+  updateFeel(dt) {
+      this._lastDt = dt;
+      if (this.particles) {
+          for (let i = this.particles.length - 1; i >= 0; i--) {
+              const p = this.particles[i];
+              p.x += p.vx * dt;
+              p.y += p.vy * dt;
+              p.vy += (p.kind === 'ring' ? 0 : 180) * dt;
+              p.life -= dt;
+              if (p.life <= 0) this.particles.splice(i, 1);
+          }
+      }
+      if (this.camStates) {
+          for (const id of Object.keys(this.camStates)) {
+              const cam = this.camStates[id];
+              cam.shake = Math.max(0, (cam.shake || 0) - 55 * dt);
+              cam.punchX = (cam.punchX || 0) * Math.max(0, 1 - 14 * dt);
+              cam.punchY = (cam.punchY || 0) * Math.max(0, 1 - 14 * dt);
+              if (Math.abs(cam.punchX) < 0.05) cam.punchX = 0;
+              if (Math.abs(cam.punchY) < 0.05) cam.punchY = 0;
+          }
+      }
+      if (this.screenFlashes) {
+          for (const id of Object.keys(this.screenFlashes)) {
+              this.screenFlashes[id] = Math.max(0, this.screenFlashes[id] - dt);
+          }
+      }
+  },
+
   spawnFlower(x, y, colorName, hex, isPatch) {
       const flowerObj = {
           id: `flower_${Math.random()}`, x, y, type: 'flower',
@@ -17,7 +122,8 @@ export const entityMethods = {
               this.player.flowers[colorName] = (this.player.flowers[colorName] || 0) + 1;
               if (this.quests.church.status === 'active') this.quests.church.current++;
               sfx.heal();
-              this.addFloatingText(obj.x, obj.y, `+1 🌸 ${colorName} Flower`, hex);
+              this.spawnPickupCue(obj.x + TILE / 2, obj.y + TILE / 2, hex);
+              this.addFloatingText(obj.x, obj.y, `+1 🌸 ${colorName} Flower`, hex, { scale: 1.15, life: 1.2 });
               this.showToast(`🌸 Picked a ${colorName} Flower! Take it to the Oakvale Art Shop to make ${colorName} Dye!`);
               this.updateQuestTracker();
           }
@@ -63,6 +169,12 @@ export const entityMethods = {
   },
 
   damageTargetsInRadius(hx, hy, radius, dmg, isArrow, attacker = this.player, attackKind = 'sword') {
+      const punchFrom = (tx, ty, amt = 5) => {
+          if (!attacker) return;
+          this.addCameraPunch(attacker.id || 'P1', amt, hx - (attacker.x || hx), hy - (attacker.y || hy));
+          this.spawnHitImpact(tx, ty, attackKind);
+      };
+
       // 1. Enemies
       for (let i = this.enemies.length - 1; i >= 0; i--) {
           const e = this.enemies[i];
@@ -72,6 +184,7 @@ export const entityMethods = {
               e.hurtDuration = 0.4;
               e.hurtTimer = e.hurtDuration;
               sfx.hit();
+              punchFrom(e.x, e.y, attackKind === 'fire_claymore' ? 7 : 5);
               this.addFloatingText(e.x, e.y - 14, `-${actualDmg} HP`, "#f87171");
               if (e.hp <= 0 && !e.dying) {
                   e.dying = true;
@@ -79,6 +192,8 @@ export const entityMethods = {
                   e.deathTimer = e.deathDuration;
                   e.hp = 0;
                   this.player.coins += 4;
+                  this.spawnKillPop(e.x, e.y);
+                  this.addCameraPunch(attacker?.id || 'P1', 8);
                   if (e.isFirstBlob) {
                       this.dungeonProgress.firstBlobDefeated = true;
                       this.showToast("✨ First Pink Blob defeated! Enter Temple 1 just North of you!");
@@ -102,8 +217,10 @@ export const entityMethods = {
               a.fleeFromX = attacker.x;
               a.fleeFromY = attacker.y;
               sfx.hit();
+              punchFrom(a.x, a.y, 4);
               this.addFloatingText(a.x, a.y - 16, `Startled! -${dmg}`, "#fda4af");
               if (a.hp <= 0) {
+                  this.spawnKillPop(a.x, a.y);
                   this.lootDrops.push({ x: a.x, y: a.y, type: 'pork' });
                   this.animals.splice(i, 1);
               }
@@ -117,9 +234,13 @@ export const entityMethods = {
               this.boss.hp -= 1;
               this.boss.invuln = 0.35;
               sfx.hit();
+              punchFrom(this.boss.x, this.boss.y, 8);
               this.addFloatingText(this.boss.x, this.boss.y - 30, `HIT! (${this.boss.hp}/15)`, "#facc15");
               this.updateBossHUD('⚔️ GIANT ROOF MONSTER', this.boss.hp, this.boss.maxHp);
-              if (this.boss.hp <= 0) this.handleBossVictory();
+              if (this.boss.hp <= 0) {
+                  this.spawnKillPop(this.boss.x, this.boss.y);
+                  this.handleBossVictory();
+              }
               if (isArrow) return true;
           }
       }
@@ -130,6 +251,7 @@ export const entityMethods = {
               this.temple2Boss.hp -= 1;
               this.temple2Boss.invuln = 0.3;
               sfx.hit();
+              punchFrom(this.temple2Boss.x, this.temple2Boss.y, 7);
               const mult = this.isMultiplayer ? 2 : 1;
               this.addFloatingText(this.temple2Boss.x, this.temple2Boss.y - 26, `SANCTUM HIT (${this.temple2Boss.hp}/12)`, "#38bdf8");
               if (this.temple2Boss.hp <= 0) {
@@ -141,6 +263,7 @@ export const entityMethods = {
                   this.player.coins += 60 * mult;
                   this.syncPlayer2Equipment();
                   this.player2.hp = this.player2.maxHp;
+                  this.spawnKillPop(this.temple2Boss.x, this.temple2Boss.y);
                   sfx.unlock();
                   this.showToast(`🏆 SECOND TEMPLE GUARDIAN DEFEATED! Drops x${mult}: +${60 * mult} Coins & +${1 * mult} Max Heart!`);
                   this.saveCurrentWorld();
@@ -164,9 +287,11 @@ export const entityMethods = {
                   this.fireBoss.hp -= 1;
                   this.fireBoss.invuln = 0.12;
                   sfx.hit();
+                  punchFrom(this.fireBoss.x, this.fireBoss.y, 6);
                   this.addFloatingText(this.fireBoss.x, this.fireBoss.y - 34, `❄️ ICE HIT! (${this.fireBoss.hp}/25❤️)`, "#38bdf8");
                   this.updateBossHUD('🔥 GIANT FIREBALL BOSS', this.fireBoss.hp, this.fireBoss.maxHp);
                   if (this.fireBoss.hp <= 0) {
+                      this.spawnKillPop(this.fireBoss.x, this.fireBoss.y);
                       this.handleFireBossVictory();
                   }
               }
@@ -187,9 +312,11 @@ export const entityMethods = {
                   if (this.waterBoss.hp < 0) this.waterBoss.hp = 0;
                   this.waterBoss.invuln = 0.25;
                   sfx.hit();
+                  punchFrom(this.waterBoss.x, this.waterBoss.y, 8);
                   this.addFloatingText(this.waterBoss.x, this.waterBoss.y - 34, `🔥 CLAYMORE HIT! (${this.waterBoss.hp}/25❤️)`, "#f97316");
                   this.updateBossHUD('🌊 ABYSSAL WATER GUARDIAN', this.waterBoss.hp, this.waterBoss.maxHp);
                   if (this.waterBoss.hp <= 0) {
+                      this.spawnKillPop(this.waterBoss.x, this.waterBoss.y);
                       this.handleWaterBossVictory();
                   }
               }

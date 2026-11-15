@@ -91,31 +91,53 @@ export const uiMethods = {
   loadSavesFromStorage() {
       try {
           const raw = localStorage.getItem(this.storageKey);
-          if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed) && parsed.length === 4) return parsed;
+          if (!raw) return [null, null, null, null];
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) {
+              console.warn('Save data was not an array; resetting slots.');
+              return [null, null, null, null];
           }
-      } catch (e) {}
-      return [null, null, null, null];
+          // Normalize to exactly 4 slots; drop corrupt non-object entries.
+          const slots = [null, null, null, null];
+          for (let i = 0; i < 4; i++) {
+              const s = parsed[i];
+              if (s && typeof s === 'object' && s.player && typeof s.player === 'object') {
+                  slots[i] = s;
+              }
+          }
+          return slots;
+      } catch (e) {
+          console.warn('Failed to read save slots:', e);
+          return [null, null, null, null];
+      }
   },
 
   saveCurrentWorld() {
       try {
+          const now = new Date();
           this.saves[this.activeSlotIndex] = {
-              savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              savedAt: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              savedDate: now.toLocaleDateString([], { month: 'short', day: 'numeric' }),
               player: JSON.parse(JSON.stringify(this.player)),
               player2: JSON.parse(JSON.stringify(this.player2)),
               dungeonProgress: JSON.parse(JSON.stringify(this.dungeonProgress)),
               quests: JSON.parse(JSON.stringify(this.quests)),
-              conqueredFlags: this.flags ? this.flags.map(f => f.conquered) : []
+              conqueredFlags: this.flags ? this.flags.map(f => f.conquered) : [],
+              isMultiplayerSnapshot: !!this.isMultiplayer
           };
           localStorage.setItem(this.storageKey, JSON.stringify(this.saves));
-      } catch (e) {}
+          return true;
+      } catch (e) {
+          console.warn('Failed to write save:', e);
+          this.showToast("⚠️ Could not save — browser storage may be full or blocked.");
+          return false;
+      }
   },
 
   manualSave() {
-      this.saveCurrentWorld();
-      this.showToast("💾 Game saved to this browser! Use Continue on the title screen to load it.");
+      if (this.saveCurrentWorld()) {
+          this.showToast(`💾 Saved to Slot ${this.activeSlotIndex + 1}! Use Continue on the title screen to load it.`);
+      }
   },
 
   applyMultiplayerLayout(multiplayer) {
@@ -193,18 +215,25 @@ export const uiMethods = {
           }
 
           this.saves.forEach((slotData, idx) => {
-              if (!slotData) return;
+              if (!slotData || !slotData.player) return;
+              const p = slotData.player;
+              const weaponLabel = p.hasFireClaymore && p.activeMeleeSlot === 'fire_claymore'
+                  ? 'Fire Claymore'
+                  : (p.weapon === 'iron_sword' ? 'Iron Sword' : 'Wooden Sword');
+              const hearts = `${Math.ceil(p.hp || 0)}/${Math.ceil(p.maxHp || 3)}❤️`;
+              const when = [slotData.savedDate, slotData.savedAt].filter(Boolean).join(' · ') || 'Unknown time';
               const card = document.createElement('div');
-              card.className = 'bg-slate-900 border-2 border-amber-500/80 rounded-xl p-4 flex justify-between items-center';
+              card.className = 'bg-slate-900 border-2 border-amber-500/80 p-4 flex justify-between items-center gap-3';
               card.innerHTML = `
-                  <div>
-                      <div class="title-font text-amber-300 font-bold text-base">WORLD SLOT ${idx + 1}</div>
-                      <div class="text-xs text-slate-300">${slotData.player.gender === 'female' ? '🧝‍♀️ Female' : '🧝‍♂️ Male'} • LVL ${slotData.player.level} • 🪙 ${slotData.player.coins}</div>
-                      <div class="text-[11px] text-slate-400">Saved: ${slotData.savedAt}</div>
+                  <div class="min-w-0">
+                      <div class="title-font text-amber-300 font-bold text-base">SLOT ${idx + 1}</div>
+                      <div class="text-xs text-slate-200 mt-1">${p.gender === 'female' ? 'Female' : 'Male'} · LVL ${p.level ?? 0} · ${hearts}</div>
+                      <div class="text-xs text-slate-300">🪙 ${p.coins ?? 0} · ${weaponLabel}</div>
+                      <div class="text-[11px] text-slate-400 mt-1">Saved ${when}</div>
                   </div>
-                  <div class="flex gap-2">
+                  <div class="flex flex-col gap-2 shrink-0">
                       <button onclick="game.loadSavedSlot(${idx})" class="hd-btn px-4 py-2 text-xs">LOAD</button>
-                      <button onclick="game.deleteSavedSlot(${idx})" class="hd-btn-secondary px-2.5 py-2 text-xs text-rose-400">🗑️</button>
+                      <button onclick="game.deleteSavedSlot(${idx})" class="hd-btn-secondary px-2.5 py-2 text-xs text-rose-400">DELETE</button>
                   </div>
               `;
               container.appendChild(card);
@@ -214,19 +243,19 @@ export const uiMethods = {
           contBtn.className = 'hd-btn-secondary px-6 py-2.5 text-sm sm:text-base';
 
           if (emptyCount === 0) {
-              container.innerHTML = `<div class="col-span-2 text-center py-6 text-amber-300">All 4 Data Slots have saved worlds! Use Continue or delete a slot to free up a New Game slot.</div>`;
+              container.innerHTML = `<div class="col-span-2 text-center py-6 text-amber-300">All 4 slots are full. Load one from Continue, or Delete a slot to free space.</div>`;
               return;
           }
 
           this.saves.forEach((slotData, idx) => {
               if (slotData) return; // Only show remaining empty slots!
               const card = document.createElement('div');
-              card.className = 'bg-slate-900 hover:bg-slate-800 border-2 border-emerald-500/70 rounded-xl p-4 flex justify-between items-center cursor-pointer transition';
+              card.className = 'bg-slate-900 hover:bg-slate-800 border-2 border-emerald-500/70 p-4 flex justify-between items-center cursor-pointer transition';
               card.onclick = () => this.prepareNewGameSlot(idx);
               card.innerHTML = `
                   <div>
-                      <div class="title-font text-emerald-300 font-bold text-base">NEW GAME - SLOT ${idx + 1}</div>
-                      <div class="text-xs text-slate-400">Empty World Data Slot — Click to customize hero</div>
+                      <div class="title-font text-emerald-300 font-bold text-base">EMPTY SLOT ${idx + 1}</div>
+                      <div class="text-xs text-slate-400">Start a new adventure here — customize your hero next</div>
                   </div>
                   <span class="hd-btn px-3 py-1.5 text-xs">+ CREATE</span>
               `;
@@ -303,6 +332,9 @@ export const uiMethods = {
       this.player.gender = this.pendingGender;
       this.player2.gender = this.pendingP2Gender;
       this.initWorld();
+      this.camStates = {};
+      this.particles = [];
+      this.screenFlashes = { P1: 0, P2: 0 };
       this.saveCurrentWorld();
       document.getElementById('title-screen').classList.add('hidden');
       document.getElementById('p2-join-modal').classList.add('hidden');
@@ -317,34 +349,61 @@ export const uiMethods = {
 
   loadSavedSlot(slotIdx) {
       const data = this.saves[slotIdx];
-      if (!data) return;
-      this.activeSlotIndex = slotIdx;
-      this.isMultiplayer = !!this.pendingMultiplayer;
-      this.applyMultiplayerLayout(this.isMultiplayer);
-      this.initDefaultState();
-      Object.assign(this.player, data.player);
-      if (data.player2) Object.assign(this.player2, data.player2);
-      this.player.swordDamage = this.player.weapon === 'iron_sword' ? 10 : 5;
-      this.player.hasShield = true;
-      this.syncPlayer2Equipment();
-      Object.assign(this.dungeonProgress, data.dungeonProgress);
-      Object.assign(this.quests, data.quests);
-      this.initWorld();
-      if (Array.isArray(data.conqueredFlags)) {
-          data.conqueredFlags.forEach((val, i) => {
-              if (this.flags[i]) this.flags[i].conquered = val;
-          });
+      if (!data || !data.player) {
+          this.showToast(`⚠️ Slot ${slotIdx + 1} is empty or damaged. Try another slot or start a New Game.`);
+          this.showSlotTab('continue');
+          return;
       }
-      document.getElementById('title-screen').classList.add('hidden');
-      // When joining an existing saved world in Multiplayer, Player 1 stays their saved Male/Female and Player 2 gets to choose on their left screen!
-      if (this.isMultiplayer) {
-          document.getElementById('p2-join-modal').classList.remove('hidden');
-      } else {
-          document.getElementById('p2-join-modal').classList.add('hidden');
+      try {
+          this.activeSlotIndex = slotIdx;
+          this.isMultiplayer = !!this.pendingMultiplayer;
+          this.applyMultiplayerLayout(this.isMultiplayer);
+          this.initDefaultState();
+          Object.assign(this.player, data.player);
+          if (data.player2 && typeof data.player2 === 'object') Object.assign(this.player2, data.player2);
+          // Guard required fields after a partial / older save
+          if (!Number.isFinite(this.player.hp)) this.player.hp = this.player.maxHp || 3;
+          if (!Number.isFinite(this.player.maxHp)) this.player.maxHp = 3;
+          if (!Number.isFinite(this.player.coins)) this.player.coins = 0;
+          if (!this.player.fish || typeof this.player.fish !== 'object') {
+              this.player.fish = { salmon: 0, silver_fish: 0, trout: 0, bull_eye: 0 };
+          }
+          this.player.swordDamage = this.player.weapon === 'iron_sword' ? 10 : 5;
+          this.player.hasShield = true;
+          this.syncPlayer2Equipment();
+          if (data.dungeonProgress && typeof data.dungeonProgress === 'object') {
+              Object.assign(this.dungeonProgress, data.dungeonProgress);
+          }
+          if (data.quests && typeof data.quests === 'object') {
+              Object.assign(this.quests, data.quests);
+          }
+          this.initWorld();
+          this.camStates = {};
+          this.particles = [];
+          this.screenFlashes = { P1: 0, P2: 0 };
+          if (Array.isArray(data.conqueredFlags)) {
+              data.conqueredFlags.forEach((val, i) => {
+                  if (this.flags[i]) this.flags[i].conquered = val;
+              });
+          }
+          document.getElementById('title-screen').classList.add('hidden');
+          // When joining an existing saved world in Multiplayer, Player 1 stays their saved Male/Female and Player 2 gets to choose on their left screen!
+          if (this.isMultiplayer) {
+              document.getElementById('p2-join-modal').classList.remove('hidden');
+          } else {
+              document.getElementById('p2-join-modal').classList.add('hidden');
+          }
+          this.updateHUD();
+          this.updateQuestTracker();
+          this.showToast(`📂 Loaded Slot ${slotIdx + 1} — ${this.player.gender.toUpperCase()} hero ready!`);
+      } catch (e) {
+          console.warn('Load failed for slot', slotIdx, e);
+          this.initDefaultState();
+          this.initWorld();
+          this.showToast(`⚠️ Could not load Slot ${slotIdx + 1}. The save may be corrupt — try another slot or New Game.`);
+          document.getElementById('title-screen').classList.remove('hidden');
+          this.showSlotTab('continue');
       }
-      this.updateHUD();
-      this.updateQuestTracker();
-      this.showToast(`📂 Loaded World Slot ${slotIdx + 1}! Player 1 kept their saved ${this.player.gender.toUpperCase()} character!`);
   },
 
   confirmP2JoinGender(gender) {
@@ -358,9 +417,14 @@ export const uiMethods = {
   },
 
   deleteSavedSlot(slotIdx) {
-      this.saves[slotIdx] = null;
-      localStorage.setItem(this.storageKey, JSON.stringify(this.saves));
-      this.showSlotTab('continue');
+      try {
+          this.saves[slotIdx] = null;
+          localStorage.setItem(this.storageKey, JSON.stringify(this.saves));
+          this.showToast(`🗑️ Cleared Slot ${slotIdx + 1}.`);
+          this.showSlotTab('continue');
+      } catch (e) {
+          this.showToast("⚠️ Could not delete that slot — storage may be blocked.");
+      }
   },
 
   returnToTitleScreen() {
@@ -1318,8 +1382,13 @@ export const uiMethods = {
       document.getElementById('quest-body').innerHTML = html;
   },
 
-  addFloatingText(x, y, text, color = "#ffffff") {
-      this.floatingTexts.push({ x, y, text, color, life: 1.1 });
+  addFloatingText(x, y, text, color = "#ffffff", opts = {}) {
+      this.floatingTexts.push({
+          x, y, text, color,
+          life: opts.life ?? 1.1,
+          scale: opts.scale ?? 1,
+          rise: opts.rise ?? 28
+      });
   },
 
   /**

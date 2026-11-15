@@ -364,7 +364,8 @@ class Game {
                 if (Math.hypot(drop.x - h.x, drop.y - h.y) < 30) {
                     this.player.pork++;
                     sfx.heal();
-                    this.addFloatingText(drop.x, drop.y, "+1 🥩 Pork", "#f472b6");
+                    this.spawnPickupCue(drop.x, drop.y, '#f472b6');
+                    this.addFloatingText(drop.x, drop.y - 8, "+1 🥩 Pork", "#f472b6", { scale: 1.2, life: 1.25 });
                     this.lootDrops.splice(i, 1);
                     this.updateHUD();
                     break;
@@ -507,9 +508,11 @@ class Game {
             this.updateWaterBoss(dt, activeHeroes);
         }
 
+        if (typeof this.updateFeel === 'function') this.updateFeel(dt);
+
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
             const ft = this.floatingTexts[i];
-            ft.y -= 28 * dt;
+            ft.y -= (ft.rise || 28) * dt;
             ft.life -= dt;
             if (ft.life <= 0) this.floatingTexts.splice(i, 1);
         }
