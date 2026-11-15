@@ -16,8 +16,19 @@
  *    first; if it returns false, keep the existing fillRect fallback.
  * 4. Re-test with: python3 -m http.server 8000  →  http://localhost:8000
  *
- * Served from the repo root (no Vite yet), so URLs start with `public/assets/...`.
+ * Served from the repo root (no Vite yet). Paths are resolved via
+ * `assetUrl()` from this module so GitHub project Pages
+ * (`/Sword-Fighter-2/`) and localhost both work — never hard-code
+ * root-absolute `/public/...` (that 404s on Pages).
  */
+
+/** Repo root URL: this file lives in `js/`, so one level up. */
+const REPO_ROOT = new URL('../', import.meta.url);
+
+/** Absolute URL under the repo root (accepts optional leading `/`). */
+export function assetUrl(relPath) {
+    return new URL(String(relPath).replace(/^\//, ''), REPO_ROOT).href;
+}
 
 /**
  * Hybrid audio: Kenney / artisticdude CC0 samples when loaded,
@@ -57,33 +68,33 @@ class SoundSystem {
     async preloadSamples() {
         const catalog = [
             // Kenney Interface Sounds (CC0)
-            ['ui_click', '/public/assets/kenney/sfx/click_001.ogg'],
-            ['ui_click2', '/public/assets/kenney/sfx/click_002.ogg'],
-            ['ui_confirm', '/public/assets/kenney/sfx/confirmation_001.ogg'],
-            ['ui_confirm2', '/public/assets/kenney/sfx/confirmation_002.ogg'],
-            ['ui_error', '/public/assets/kenney/sfx/error_001.ogg'],
-            ['ui_switch', '/public/assets/kenney/sfx/switch_001.ogg'],
-            ['ui_select', '/public/assets/kenney/sfx/select_001.ogg'],
-            ['ui_open', '/public/assets/kenney/sfx/open_001.ogg'],
-            ['ui_close', '/public/assets/kenney/sfx/close_001.ogg'],
-            ['ui_pluck', '/public/assets/kenney/sfx/pluck_001.ogg'],
-            ['ui_drop', '/public/assets/kenney/sfx/drop_001.ogg'],
-            ['ui_glass', '/public/assets/kenney/sfx/glass_001.ogg'],
+            ['ui_click', assetUrl('public/assets/kenney/sfx/click_001.ogg')],
+            ['ui_click2', assetUrl('public/assets/kenney/sfx/click_002.ogg')],
+            ['ui_confirm', assetUrl('public/assets/kenney/sfx/confirmation_001.ogg')],
+            ['ui_confirm2', assetUrl('public/assets/kenney/sfx/confirmation_002.ogg')],
+            ['ui_error', assetUrl('public/assets/kenney/sfx/error_001.ogg')],
+            ['ui_switch', assetUrl('public/assets/kenney/sfx/switch_001.ogg')],
+            ['ui_select', assetUrl('public/assets/kenney/sfx/select_001.ogg')],
+            ['ui_open', assetUrl('public/assets/kenney/sfx/open_001.ogg')],
+            ['ui_close', assetUrl('public/assets/kenney/sfx/close_001.ogg')],
+            ['ui_pluck', assetUrl('public/assets/kenney/sfx/pluck_001.ogg')],
+            ['ui_drop', assetUrl('public/assets/kenney/sfx/drop_001.ogg')],
+            ['ui_glass', assetUrl('public/assets/kenney/sfx/glass_001.ogg')],
             // artisticdude RPG Sound Pack (CC0) — curated oggs
-            ['slash', '/public/assets/sfx/rpg/slash.ogg'],
-            ['slash2', '/public/assets/sfx/rpg/slash2.ogg'],
-            ['slash3', '/public/assets/sfx/rpg/slash3.ogg'],
-            ['unsheathe', '/public/assets/sfx/rpg/unsheathe.ogg'],
-            ['hit', '/public/assets/sfx/rpg/hit.ogg'],
-            ['hurt', '/public/assets/sfx/rpg/hurt.ogg'],
-            ['coin', '/public/assets/sfx/rpg/coin.ogg'],
-            ['coin2', '/public/assets/sfx/rpg/coin2.ogg'],
-            ['heal', '/public/assets/sfx/rpg/heal.ogg'],
-            ['bubble', '/public/assets/sfx/rpg/bubble.ogg'],
-            ['magic', '/public/assets/sfx/rpg/magic.ogg'],
-            ['door', '/public/assets/sfx/rpg/door.ogg'],
-            ['armor', '/public/assets/sfx/rpg/armor.ogg'],
-            ['ui1', '/public/assets/sfx/rpg/ui1.ogg'],
+            ['slash', assetUrl('public/assets/sfx/rpg/slash.ogg')],
+            ['slash2', assetUrl('public/assets/sfx/rpg/slash2.ogg')],
+            ['slash3', assetUrl('public/assets/sfx/rpg/slash3.ogg')],
+            ['unsheathe', assetUrl('public/assets/sfx/rpg/unsheathe.ogg')],
+            ['hit', assetUrl('public/assets/sfx/rpg/hit.ogg')],
+            ['hurt', assetUrl('public/assets/sfx/rpg/hurt.ogg')],
+            ['coin', assetUrl('public/assets/sfx/rpg/coin.ogg')],
+            ['coin2', assetUrl('public/assets/sfx/rpg/coin2.ogg')],
+            ['heal', assetUrl('public/assets/sfx/rpg/heal.ogg')],
+            ['bubble', assetUrl('public/assets/sfx/rpg/bubble.ogg')],
+            ['magic', assetUrl('public/assets/sfx/rpg/magic.ogg')],
+            ['door', assetUrl('public/assets/sfx/rpg/door.ogg')],
+            ['armor', assetUrl('public/assets/sfx/rpg/armor.ogg')],
+            ['ui1', assetUrl('public/assets/sfx/rpg/ui1.ogg')],
         ];
         this.init();
         if (!this.ctx) return;
@@ -283,10 +294,10 @@ class SoundSystem {
 
 export const sfx = new SoundSystem();
 
-/** Root URL when serving the repo with a static server (no Vite yet).
- * Leading slash so strips resolve from any page path (e.g. /tools/anim-demo.html).
+/** Sunnyside root — resolved from this module so Pages subpaths work.
+ * Also correct when demos under /tools/ import this file.
  */
-export const ASSET_ROOT = '/public/assets/sunnyside';
+export const ASSET_ROOT = assetUrl('public/assets/sunnyside');
 
 /**
  * Curated key → file map (expanded coverage: animals, fire VFX, more UI).
@@ -429,25 +440,25 @@ export const CURATED_ASSETS = [
     { key: 'ui_happiness_empty', url: `${ASSET_ROOT}/UI/happiness_04.png` },
 
     // Kenney Game Icons (CC0) — chrome / mute glyphs when Sunnyside has no match
-    // Absolute /public paths so icons still resolve if opened from a subpath.
-    { key: 'kenney_gear', url: '/public/assets/kenney/icons/gear.png' },
-    { key: 'kenney_music_on', url: '/public/assets/kenney/icons/musicOn.png' },
-    { key: 'kenney_music_off', url: '/public/assets/kenney/icons/musicOff.png' },
-    { key: 'kenney_audio_on', url: '/public/assets/kenney/icons/audioOn.png' },
-    { key: 'kenney_audio_off', url: '/public/assets/kenney/icons/audioOff.png' },
-    { key: 'kenney_star', url: '/public/assets/kenney/icons/star.png' },
-    { key: 'kenney_door', url: '/public/assets/kenney/icons/door.png' },
-    { key: 'kenney_exit', url: '/public/assets/kenney/icons/exitRight.png' },
-    { key: 'kenney_multi', url: '/public/assets/kenney/icons/multiplayer.png' },
-    { key: 'kenney_single', url: '/public/assets/kenney/icons/singleplayer.png' },
-    { key: 'kenney_save', url: '/public/assets/kenney/icons/save.png' },
-    { key: 'kenney_home', url: '/public/assets/kenney/icons/home.png' },
-    { key: 'kenney_trophy', url: '/public/assets/kenney/icons/trophy.png' },
-    { key: 'kenney_locked', url: '/public/assets/kenney/icons/locked.png' },
-    { key: 'kenney_unlocked', url: '/public/assets/kenney/icons/unlocked.png' },
+    // assetUrl() keeps GitHub project Pages base (/Sword-Fighter-2/) correct.
+    { key: 'kenney_gear', url: assetUrl('public/assets/kenney/icons/gear.png') },
+    { key: 'kenney_music_on', url: assetUrl('public/assets/kenney/icons/musicOn.png') },
+    { key: 'kenney_music_off', url: assetUrl('public/assets/kenney/icons/musicOff.png') },
+    { key: 'kenney_audio_on', url: assetUrl('public/assets/kenney/icons/audioOn.png') },
+    { key: 'kenney_audio_off', url: assetUrl('public/assets/kenney/icons/audioOff.png') },
+    { key: 'kenney_star', url: assetUrl('public/assets/kenney/icons/star.png') },
+    { key: 'kenney_door', url: assetUrl('public/assets/kenney/icons/door.png') },
+    { key: 'kenney_exit', url: assetUrl('public/assets/kenney/icons/exitRight.png') },
+    { key: 'kenney_multi', url: assetUrl('public/assets/kenney/icons/multiplayer.png') },
+    { key: 'kenney_single', url: assetUrl('public/assets/kenney/icons/singleplayer.png') },
+    { key: 'kenney_save', url: assetUrl('public/assets/kenney/icons/save.png') },
+    { key: 'kenney_home', url: assetUrl('public/assets/kenney/icons/home.png') },
+    { key: 'kenney_trophy', url: assetUrl('public/assets/kenney/icons/trophy.png') },
+    { key: 'kenney_locked', url: assetUrl('public/assets/kenney/icons/locked.png') },
+    { key: 'kenney_unlocked', url: assetUrl('public/assets/kenney/icons/unlocked.png') },
 
     // CC0 hearts strip (firehawk) — 4×16px frames in a 64×16 sheet
-    { key: 'cc0_hearts', url: '/public/assets/cc0/hearts.png', frames: 4 },
+    { key: 'cc0_hearts', url: assetUrl('public/assets/cc0/hearts.png'), frames: 4 },
 ];
 
 /**
