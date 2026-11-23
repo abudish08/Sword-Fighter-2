@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Sword Fighter 2",
+  "version": "0.1.0",
+  "identifier": "com.abudish.swordfighter2",
+  "build": {
+    "frontendDist": "../desktop-dist",
+    "devUrl": "http://127.0.0.1:8000",
+    "beforeDevCommand": "python3 -m http.server 8000 --bind 127.0.0.1",
+    "beforeBuildCommand": "node scripts/prepare-desktop.mjs"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Sword Fighter 2",
+        "width": 1280,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "shortDescription": "Cole's retro pixel RPG",
+    "longDescription": "Sword Fighter 2 — a top-down adventure with temples, bosses, fishing, and a huge procedural world. Same game as the browser version, packaged as a desktop app."
+  }
+}

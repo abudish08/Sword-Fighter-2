@@ -1,0 +1,16 @@
+{
+  "name": "sword-fighter-2",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sword Fighter 2 — browser RPG with optional Tauri desktop wrapper",
+  "scripts": {
+    "serve": "python3 -m http.server 8000 --bind 127.0.0.1",
+    "prepare:desktop": "node scripts/prepare-desktop.mjs",
+    "desktop:dev": "npm run prepare:desktop && tauri dev",
+    "desktop:build": "npm run prepare:desktop && tauri build",
+    "desktop:icons": "tauri icon src-tauri/icons/icon.png"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  }
+}

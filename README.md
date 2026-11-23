@@ -11,7 +11,7 @@ Once the repo is public and GitHub Pages is enabled, open:
 
 **https://abudish08.github.io/Sword-Fighter-2/**
 
-### Locally
+### Locally (browser)
 ES modules need a tiny local web server (opening `index.html` as a `file://` page will not load `js/*.js`).
 
 ```bash
@@ -21,6 +21,38 @@ python3 -m http.server 8000
 ```
 
 Or any other static server (VS Code Live Server, `npx serve`, etc.).
+
+### Desktop app (optional, double-click install)
+
+The browser / GitHub Pages game stays the main way to play. Optionally you can wrap the **same** static site in a lightweight **Tauri** desktop window so it runs like a normal installed app.
+
+**What you need on your computer (one-time):**
+1. [Node.js](https://nodejs.org/) (LTS is fine)
+2. [Rust](https://www.rust-lang.org/tools/install) (`rustup` → **stable 1.90+**; run `rustup update`)
+3. OS webview libraries (Tauri’s docs list them):
+   - **macOS**: Xcode Command Line Tools
+   - **Windows**: WebView2 (usually already present on Win10/11)
+   - **Linux**: `webkit2gtk` + GTK (e.g. Ubuntu: `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `librsvg2-dev`, `patchelf`)
+
+**Run in a desktop window (dev):**
+```bash
+npm install
+npm run desktop:dev
+```
+That starts the usual local web server and opens Sword Fighter 2 in an app window. Game files are still the ones in this repo — no separate game copy.
+
+**Build an installable app:**
+```bash
+npm install
+npm run desktop:build
+```
+Installers / binaries land under `src-tauri/target/release/bundle/` (exact folder names depend on your OS: `.dmg` / `.app` on Mac, `.msi` / `.exe` on Windows, `.deb` / `.AppImage` on Linux). Double-click / install from there.
+
+**Notes for Andy:**
+- You do **not** need the desktop build to play online — Pages keeps working unchanged.
+- First desktop build downloads Rust crates and can take several minutes; later builds are faster.
+- The game still loads Tailwind + Google Fonts from the internet (same as the browser version). Offline-only packaging can come later when those are self-hosted.
+- Optional nicer app icons: drop a square PNG over `src-tauri/icons/icon.png`, then run `npm run desktop:icons`.
 
 ## Controls
 
