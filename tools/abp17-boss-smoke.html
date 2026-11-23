@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SF2 ABP-17 unique boss artwork smoke</title>
+  <style>
+    body { font: 14px/1.4 ui-monospace, monospace; background: #0f172a; color: #e2e8f0; padding: 1rem; }
+    canvas { image-rendering: pixelated; background: #1e293b; display: block; margin: 0.75rem 0; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+    .row { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-end; }
+    label { display: block; text-align: center; color: #94a3b8; font-size: 12px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <p>ABP-17 smoke — unique temple / temple2 / fire / water boss strips + Pages-safe URLs</p>
+  <div class="row" id="row"></div>
+  <pre id="out">loading…</pre>
+  <script type="module">
+    import { assets, CURATED_ASSETS, BOSS_SPRITES } from '/js/assets.js';
+    const out = document.getElementById('out');
+    const r = await assets.loadAll(CURATED_ASSETS);
+    const ids = ['temple', 'temple2', 'fire', 'water'];
+    const checks = { load: r, bosses: {}, pagesSafe: true };
+    const row = document.getElementById('row');
+
+    for (const id of ids) {
+      const map = BOSS_SPRITES[id];
+      const img = assets.getImage(map.idle);
+      const src = img?.src || '';
+      // assetUrl() / import.meta.url: path must include project assets folder.
+      // Reject only the classic Pages regression: https://host/public/... (no repo segment).
+      const isLocal = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?\//i.test(src);
+      const pagesRegression = /^https?:\/\/[^/]+\/public\//.test(src) && !isLocal;
+      const pagesSafe = /\/public\/assets\/cc0\/boss_/.test(src) && !pagesRegression;
+      checks.pagesSafe = checks.pagesSafe && pagesSafe;
+
+      const wrap = document.createElement('div');
+      const c = document.createElement('canvas');
+      c.width = 140; c.height = 140;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(0, 0, 140, 140);
+      ctx.save();
+      ctx.translate(70, 110);
+      const ok = assets.drawBossSprite(ctx, id, { state: 'idle', x: 0, y: 0 });
+      ctx.restore();
+      wrap.appendChild(c);
+      const lab = document.createElement('label');
+      lab.textContent = id;
+      wrap.appendChild(lab);
+      row.appendChild(wrap);
+
+      checks.bosses[id] = {
+        dedicated: assets.has(map.idle),
+        drawOk: ok,
+        url: src || null,
+        pagesSafe,
+        fallbackReady: assets.has(map.fallbackIdle),
+      };
+    }
+
+    // Soft-fail path: temporarily mark dedicated keys missing and ensure fallback draws.
+    const soft = {};
+    for (const id of ids) {
+      const map = BOSS_SPRITES[id];
+      const had = assets.images.get(map.idle);
+      assets.images.delete(map.idle);
+      const c = document.createElement('canvas');
+      c.width = 64; c.height = 64;
+      const ctx = c.getContext('2d');
+      ctx.translate(32, 48);
+      soft[id] = assets.drawBossSprite(ctx, id, { state: 'idle' });
+      if (had) assets.images.set(map.idle, had);
+    }
+    checks.fallbackDraw = soft;
+
+    out.textContent = JSON.stringify(checks, null, 2);
+    window.__SMOKE__ = checks;
+  </script>
+</body>
+</html>
