@@ -564,7 +564,7 @@ export const playerMethods = {
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.fillRect(-11, 13, 22, 5);
 
-      // Prefer Sunnyside Human layers when loaded (diver stays procedural).
+      // Prefer Sunnyside Human layers when loaded (diver uses dive-suit dye).
       if (assets.drawHeroSprite(ctx, p, !!p.moving)) {
           if (p.stealthHidden) {
               ctx.fillStyle = '#4ade80';

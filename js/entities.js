@@ -591,7 +591,7 @@ export const entityMethods = {
       ctx.fillStyle = 'rgba(0,0,0,0.28)';
       ctx.fillRect(-14, 13, 28, 5);
 
-      // Sunnyside animal strips when available (rabbit stays procedural — no pack sheet).
+      // Sunnyside animal strips (+ CC0 rabbit) when available.
       if (assets.drawAnimalSprite(ctx, a)) {
           ctx.restore();
           return;

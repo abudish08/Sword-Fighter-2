@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SF2 ABP-15 rabbit/diver/HUD smoke</title>
+  <style>
+    body { font: 14px/1.4 ui-monospace, monospace; background: #0f172a; color: #e2e8f0; padding: 1rem; }
+    canvas { image-rendering: pixelated; background: #334155; display: block; margin: 0.75rem 0; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body>
+  <p>ABP-15 smoke — rabbit strip, diver dive-suit dye, bow/shield HUD icons</p>
+  <canvas id="c" width="480" height="160"></canvas>
+  <pre id="out">loading…</pre>
+  <script type="module">
+    import { assets, CURATED_ASSETS, UI_ICONS, ANIMAL_SPRITES } from '/js/assets.js';
+    const out = document.getElementById('out');
+    const r = await assets.loadAll(CURATED_ASSETS);
+    const bowImg = assets.getImage(UI_ICONS.bow);
+    const rabbitImg = assets.getImage(ANIMAL_SPRITES.rabbit);
+    // Pages-safe = not domain-root absolute /public/... (must include project base when hosted under /Sword-Fighter-2/)
+    const src = bowImg?.src || '';
+    const pagesSafe = !/^https?:\/\/[^/]+\/public\//.test(src);
+    const checks = {
+      load: r,
+      bow: assets.has(UI_ICONS.bow),
+      shield: assets.has(UI_ICONS.shield),
+      rabbit: assets.has(ANIMAL_SPRITES.rabbit),
+      swimBase: assets.has('hero_swimming_base'),
+      bowUrl: src,
+      rabbitUrl: rabbitImg?.src || null,
+      pagesSafe,
+    };
+    const ctx = document.getElementById('c').getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, 480, 160);
+
+    ctx.save();
+    ctx.translate(48, 100);
+    const rabbitOk = assets.drawAnimalSprite(ctx, {
+      kind: 'rabbit', x: 0, y: 0, dirAngle: 0, fleeTimer: 0,
+    });
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(140, 100);
+    const diverOk = assets.drawHeroSprite(ctx, {
+      outfit: 'diver', gender: 'male', dir: 'right',
+      attackTimer: 0, bowAnimTimer: 0, hurtAnimTimer: 0, onWater: false,
+      fishingState: null, shielding: false, activeMeleeSlot: null,
+    }, true);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(240, 100);
+    const swimOk = assets.drawHeroSprite(ctx, {
+      outfit: 'diver', gender: 'female', dir: 'right',
+      attackTimer: 0, bowAnimTimer: 0, hurtAnimTimer: 0, onWater: true,
+      fishingState: null, shielding: false, activeMeleeSlot: null,
+    }, false);
+    ctx.restore();
+
+    const bow = assets.getImage(UI_ICONS.bow);
+    const shield = assets.getImage(UI_ICONS.shield);
+    if (bow) ctx.drawImage(bow, 320, 48, 48, 48);
+    if (shield) ctx.drawImage(shield, 390, 48, 48, 48);
+
+    checks.draw = { rabbitOk, diverOk, swimOk };
+    out.textContent = JSON.stringify(checks, null, 2);
+    window.__SMOKE__ = checks;
+  </script>
+</body>
+</html>

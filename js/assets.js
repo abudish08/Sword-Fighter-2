@@ -365,13 +365,14 @@ export const CURATED_ASSETS = [
     { key: 'skeleton_hurt', url: `${ASSET_ROOT}/Characters/Skeleton/PNG/skeleton_hurt_strip7.png`, frames: 7 },
     { key: 'skeleton_death', url: `${ASSET_ROOT}/Characters/Skeleton/PNG/skeleton_death_strip10.png`, frames: 10 },
 
-    // Animals (pack has cow/pig/sheep/chicken/duck/bird — no rabbit sheet)
+    // Animals (Sunnyside: cow/pig/sheep/chicken/duck/bird; rabbit is a CC0 companion strip)
     { key: 'animal_cow', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_cow_strip4.png`, frames: 4 },
     { key: 'animal_pig', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_pig_01_strip4.png`, frames: 4 },
     { key: 'animal_sheep', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_sheep_01_strip4.png`, frames: 4 },
     { key: 'animal_chicken', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_chicken_01_strip4.png`, frames: 4 },
     { key: 'animal_duck', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_duck_01_strip4.png`, frames: 4 },
     { key: 'animal_bird', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_bird_01_strip4.png`, frames: 4 },
+    { key: 'animal_rabbit', url: assetUrl('public/assets/cc0/rabbit_strip4.png'), frames: 4 },
 
     // World
     { key: 'tileset_16', url: `${ASSET_ROOT}/Tileset/spr_tileset_sunnysideworld_16px.png` },
@@ -459,16 +460,21 @@ export const CURATED_ASSETS = [
 
     // CC0 hearts strip (firehawk) — 4×16px frames in a 64×16 sheet
     { key: 'cc0_hearts', url: assetUrl('public/assets/cc0/hearts.png'), frames: 4 },
+    // CC0 HUD glyphs (Sunnyside/Kenney packs have no true bow or shield icon)
+    { key: 'cc0_bow', url: assetUrl('public/assets/cc0/bow.png') },
+    { key: 'cc0_shield', url: assetUrl('public/assets/cc0/shield.png') },
 ];
 
 /**
  * DOM HUD slot → preferred asset key (Sunnyside first, then Kenney/CC0).
  * Roles omitted here keep emoji (no good free glyph in the packs we staged).
- * Gaps: true bow, true shield, pork chop, golden apple, dedicated fire claymore.
+ * Gaps: pork chop, golden apple, dedicated fire claymore.
  */
 export const UI_ICONS = {
     sword: 'ui_sword',
     claymore: 'ui_axe',          // closest Sunnyside tool glyph
+    bow: 'cc0_bow',
+    shield: 'cc0_shield',
     wave: 'ui_water',
     rod: 'ui_rod',
     pork: 'item_egg',            // food stand-in
@@ -609,7 +615,7 @@ export const ANIM_FRAME_MS = {
     death: 70,
 };
 
-/** Animal kind → strip key. Rabbit has no pack sheet → procedural fallback. */
+/** Animal kind → strip key. Rabbit uses a CC0 companion strip (Sunnyside has none). */
 export const ANIMAL_SPRITES = {
     cow: 'animal_cow',
     pig: 'animal_pig',
@@ -617,7 +623,7 @@ export const ANIMAL_SPRITES = {
     chicken: 'animal_chicken',
     duck: 'animal_duck',
     bird: 'animal_bird',
-    // rabbit intentionally omitted — keep fillRect bunny
+    rabbit: 'animal_rabbit',
 };
 
 /** Boss id → sheet + optional tint + scale. Pack has no unique boss art. */
@@ -1112,11 +1118,10 @@ export class AssetLoader {
      * Composite Human base + hair (+ tools for fishing) for the hero.
      * Sprites face right; flipX for left. Up/down reuse the side view (pack has no cardinal sheets).
      * Applies tunicColor to body clothing and hatColor to hair (outfit dye support).
-     * Diver outfit stays procedural (no dedicated dive sheets).
+     * Diver outfit uses the same Human sheets with a black/white dive-suit dye
+     * (swim clip already selected on water via resolveHeroAction).
      */
     drawHeroSprite(ctx, p, moving = false) {
-        if (p.outfit === 'diver') return false;
-
         let action = this.resolveHeroAction(p, moving);
         const hairSuffix = p.gender === 'female' ? 'f' : 'm';
         const pickKeys = (act) => ({
@@ -1127,7 +1132,7 @@ export class AssetLoader {
 
         let keys = pickKeys(action);
         // Fallback chain if a clip failed to load.
-        const fallbacks = ['idle', 'walk', 'run', 'attack'];
+        const fallbacks = ['idle', 'walk', 'run', 'attack', 'swimming'];
         if (!this.has(keys.baseKey)) {
             let found = null;
             for (const fb of fallbacks) {
@@ -1144,9 +1149,11 @@ export class AssetLoader {
         const frames = this.getMeta(keys.baseKey)?.frames || 8;
         const frame = this.heroFrameForAction(p, action, frames);
         const flipX = p.dir === 'left';
-        const tunic = p.tunicColor || '#16a34a';
-        const hat = p.hatColor || '#15803d';
-        const legs = p.legsColor || '#334155';
+        const isDiver = p.outfit === 'diver';
+        // Dive suit: near-black body + light stripe legs (matches procedural diver palette).
+        const tunic = isDiver ? '#0f172a' : (p.tunicColor || '#16a34a');
+        const hat = isDiver ? '#0f172a' : (p.hatColor || '#15803d');
+        const legs = isDiver ? '#f8fafc' : (p.legsColor || '#334155');
         const drawOpts = { targetH: 48, maxW: 38, footPad: 16 };
 
         this.drawCroppedStrip(ctx, keys.baseKey, frame, 0, 0, flipX, {
@@ -1221,7 +1228,8 @@ export class AssetLoader {
     }
 
     /**
-     * Farm animals from Elements/Animals. Rabbit (no sheet) returns false.
+     * Farm animals from Elements/Animals (+ CC0 rabbit companion strip).
+     * Missing sheet → false (procedural fallback in entities.js).
      */
     drawAnimalSprite(ctx, a) {
         const key = ANIMAL_SPRITES[a.kind];
@@ -1231,9 +1239,10 @@ export class AssetLoader {
         const frame = Math.floor(performance.now() / speed) % frames;
         const flipX = Math.cos(a.dirAngle || 0) < 0;
         const tall = a.kind === 'cow' || a.kind === 'sheep' || a.kind === 'pig';
+        const isRabbit = a.kind === 'rabbit';
         return this.drawCroppedStrip(ctx, key, frame, 0, 0, flipX, {
-            targetH: tall ? 36 : 28,
-            maxW: tall ? 48 : 32,
+            targetH: tall ? 36 : (isRabbit ? 30 : 28),
+            maxW: tall ? 48 : (isRabbit ? 36 : 32),
             footPad: 14,
         });
     }
