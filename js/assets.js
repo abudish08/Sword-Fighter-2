@@ -374,6 +374,13 @@ export const CURATED_ASSETS = [
     { key: 'animal_bird', url: `${ASSET_ROOT}/Elements/Animals/spr_deco_bird_01_strip4.png`, frames: 4 },
     { key: 'animal_rabbit', url: assetUrl('public/assets/cc0/rabbit_strip4.png'), frames: 4 },
 
+    // Bosses — dedicated CC0 idle strips (Sunnyside pack has no unique boss sheets).
+    // assetUrl() keeps GitHub project Pages base (/Sword-Fighter-2/) correct.
+    { key: 'boss_temple_idle', url: assetUrl('public/assets/cc0/boss_temple_idle_strip4.png'), frames: 4 },
+    { key: 'boss_temple2_idle', url: assetUrl('public/assets/cc0/boss_temple2_idle_strip4.png'), frames: 4 },
+    { key: 'boss_fire_idle', url: assetUrl('public/assets/cc0/boss_fire_idle_strip4.png'), frames: 4 },
+    { key: 'boss_water_idle', url: assetUrl('public/assets/cc0/boss_water_idle_strip4.png'), frames: 4 },
+
     // World
     { key: 'tileset_16', url: `${ASSET_ROOT}/Tileset/spr_tileset_sunnysideworld_16px.png` },
     { key: 'tree_deco', url: `${ASSET_ROOT}/Elements/Plants/spr_deco_tree_01_strip4.png`, frames: 4 },
@@ -626,12 +633,48 @@ export const ANIMAL_SPRITES = {
     rabbit: 'animal_rabbit',
 };
 
-/** Boss id → sheet + optional tint + scale. Pack has no unique boss art. */
+/**
+ * Boss id → dedicated CC0 sheet + layered aura + scaled presentation.
+ * `fallbackIdle` / `fallbackWalk` keep the old tinted goblin/skeleton stand-ins
+ * when a dedicated sheet fails to load (soft-fail path).
+ */
 export const BOSS_SPRITES = {
-    temple: { idle: 'goblin_idle', walk: 'goblin_walk', tint: '#7e22ce', scale: 1.55 },
-    temple2: { idle: 'skeleton_idle', walk: 'skeleton_walk', tint: '#0284c7', scale: 1.45 },
-    fire: { idle: 'goblin_idle', walk: 'goblin_attack', tint: '#dc2626', scale: 1.7, fire: true },
-    water: { idle: 'skeleton_idle', walk: 'skeleton_walk', tint: '#0369a1', scale: 1.65 },
+    temple: {
+        idle: 'boss_temple_idle',
+        walk: 'boss_temple_idle',
+        fallbackIdle: 'goblin_idle',
+        fallbackWalk: 'goblin_walk',
+        fallbackTint: '#7e22ce',
+        scale: 1.7,
+        aura: 'glint',
+    },
+    temple2: {
+        idle: 'boss_temple2_idle',
+        walk: 'boss_temple2_idle',
+        fallbackIdle: 'skeleton_idle',
+        fallbackWalk: 'skeleton_walk',
+        fallbackTint: '#0284c7',
+        scale: 1.6,
+        aura: 'glint',
+    },
+    fire: {
+        idle: 'boss_fire_idle',
+        walk: 'boss_fire_idle',
+        fallbackIdle: 'goblin_idle',
+        fallbackWalk: 'goblin_attack',
+        fallbackTint: '#dc2626',
+        scale: 1.85,
+        aura: 'fire',
+    },
+    water: {
+        idle: 'boss_water_idle',
+        walk: 'boss_water_idle',
+        fallbackIdle: 'skeleton_idle',
+        fallbackWalk: 'skeleton_walk',
+        fallbackTint: '#0369a1',
+        scale: 1.75,
+        aura: 'water',
+    },
 };
 
 function parseHexColor(hex) {
@@ -1274,40 +1317,101 @@ export class AssetLoader {
     }
 
     /**
-     * Boss stand-ins: tinted/scaled Goblin or Skeleton (+ fire VFX for fire boss).
+     * Unique boss presentation: dedicated CC0 idle strip + thematic aura layers.
+     * Falls back to tinted goblin/skeleton stand-ins if the sheet is missing.
      * Attack FX (lasers, claymore arcs) stay procedural in entities.js.
      */
     drawBossSprite(ctx, bossId, boss) {
         const map = BOSS_SPRITES[bossId];
         if (!map) return false;
-        const moving = boss.state && /swing|spin|laser_fire|wave/.test(boss.state);
-        const key = moving && this.has(map.walk) ? map.walk : map.idle;
-        if (!this.has(key)) return false;
+
+        const moving = boss.state && /swing|spin|laser_fire|wave|flame/.test(String(boss.state));
+        let key = null;
+        let tint = null;
+        let usingFallback = false;
+        if (this.has(map.idle)) {
+            key = moving && this.has(map.walk) ? map.walk : map.idle;
+        } else if (map.fallbackIdle && this.has(map.fallbackIdle)) {
+            usingFallback = true;
+            key = moving && map.fallbackWalk && this.has(map.fallbackWalk)
+                ? map.fallbackWalk
+                : map.fallbackIdle;
+            tint = map.fallbackTint || null;
+        }
+        if (!key) return false;
+
         const frames = this.getMeta(key)?.frames || 1;
         const frame = Math.floor(performance.now() / 110) % frames;
-        const flipX = false;
         const scale = map.scale || 1.5;
         const crop = this.getContentCrop(key);
         const base = this.sizedDest(crop, Math.round(42 * scale), Math.round(48 * scale));
-        const recolored = this.getRecoloredFrame(key, frame, map.tint, null, 'body');
         const dw = base.dw;
         const dh = base.dh;
         const dx = -dw / 2;
         const dy = -dh + 18;
 
-        if (map.fire && this.has('fire_deco')) {
-            const ff = Math.floor(performance.now() / 90) % (this.getMeta('fire_deco')?.frames || 4);
-            const fireCrop = this.getContentCrop('fire_deco');
-            this.drawStrip(ctx, 'fire_deco', ff, -dw * 0.7, -dh * 0.85, dw * 0.55, dh * 0.55, false, fireCrop);
-            this.drawStrip(ctx, 'fire_deco_b', ff, dw * 0.15, -dh * 0.9, dw * 0.55, dh * 0.55, false, this.getContentCrop('fire_deco_b'));
-        }
+        this._drawBossAura(ctx, map.aura, dw, dh);
 
-        if (recolored) {
-            ctx.drawImage(recolored, dx, dy, dw, dh);
-        } else {
-            this.drawStrip(ctx, key, frame, dx, dy, dw, dh, flipX, crop);
+        if (usingFallback && tint) {
+            const recolored = this.getRecoloredFrame(key, frame, tint, null, 'body');
+            if (recolored) {
+                ctx.drawImage(recolored, dx, dy, dw, dh);
+                return true;
+            }
         }
+        this.drawStrip(ctx, key, frame, dx, dy, dw, dh, false, crop);
         return true;
+    }
+
+    /** Thematic aura behind a boss body (fire / crystal glint / water foam). */
+    _drawBossAura(ctx, aura, dw, dh) {
+        if (!aura) return;
+        const t = performance.now();
+        if (aura === 'fire') {
+            if (!this.has('fire_deco')) return;
+            const ff = Math.floor(t / 90) % (this.getMeta('fire_deco')?.frames || 4);
+            const fireCrop = this.getContentCrop('fire_deco');
+            this.drawStrip(ctx, 'fire_deco', ff, -dw * 0.75, -dh * 0.95, dw * 0.6, dh * 0.6, false, fireCrop);
+            if (this.has('fire_deco_b')) {
+                this.drawStrip(
+                    ctx, 'fire_deco_b', ff,
+                    dw * 0.12, -dh * 1.0, dw * 0.6, dh * 0.6,
+                    false, this.getContentCrop('fire_deco_b')
+                );
+            }
+            return;
+        }
+        if (aura === 'glint') {
+            const key = this.has('glint_a') ? 'glint_a' : (this.has('vfx_glint') ? 'vfx_glint' : null);
+            if (!key) return;
+            const gf = Math.floor(t / 140) % (this.getMeta(key)?.frames || 4);
+            const gc = this.getContentCrop(key);
+            this.drawStrip(ctx, key, gf, -dw * 0.55, -dh * 1.05, dw * 0.35, dh * 0.35, false, gc);
+            this.drawStrip(ctx, key, gf + 2, dw * 0.2, -dh * 0.95, dw * 0.3, dh * 0.3, false, gc);
+            return;
+        }
+        if (aura === 'water') {
+            // Soft wave rings + foam glints (no dedicated water particle sheet in pack).
+            const pulse = 0.45 + 0.25 * Math.sin(t / 220);
+            ctx.save();
+            ctx.strokeStyle = `rgba(56, 189, 248, ${0.35 + pulse * 0.25})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.ellipse(0, 10, dw * 0.55, dh * 0.18, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.strokeStyle = `rgba(186, 230, 253, ${0.25 + pulse * 0.2})`;
+            ctx.beginPath();
+            ctx.ellipse(0, 14, dw * 0.4, dh * 0.12, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+            const gKey = this.has('glint_b') ? 'glint_b' : (this.has('vfx_glint_b') ? 'vfx_glint_b' : null);
+            if (gKey) {
+                const gf = Math.floor(t / 160) % (this.getMeta(gKey)?.frames || 4);
+                const gc = this.getContentCrop(gKey);
+                this.drawStrip(ctx, gKey, gf, -dw * 0.5, -dh * 0.7, dw * 0.28, dh * 0.28, false, gc);
+                this.drawStrip(ctx, gKey, gf + 1, dw * 0.22, -dh * 0.55, dw * 0.24, dh * 0.24, false, gc);
+            }
+        }
     }
 
     /**
